@@ -1,0 +1,4 @@
+pintos/src/utils/pintos
+pintos/src/utils/pintos-gdb
+pintos/src/misc/gdb-macros
+위 파일들에서 port번호와 경로등을 자신 환경에 맞게 수정할 것!
