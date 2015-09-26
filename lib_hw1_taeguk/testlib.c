@@ -18,9 +18,8 @@ const char *command_list[] =
 };
 
 struct Command *command_hash_table[HASH_SIZE];
-// list_hash_table
-// hashTable_hash_table
-// bitmap_hash_table
+struct WrapDataStructure *wds_hash_table[HASH_SIZE];
+int wds_cnt;
 
 int main(void)
 {
@@ -33,6 +32,7 @@ int main(void)
 			// error handling
 		}
 	} while(process_request(&req));
+	// need specific error handling when process_request returns "false"
 
 	clean_resource();
 
@@ -46,6 +46,8 @@ void initialize(void)
 	for(i = 0; i < sizeof command_list / sizeof char*; ++i) {
 		unsigned int hash = hash_command(command_list[i]);
 		struct Command *cmd = malloc(sizeof *cmd);
+		cmd->cmd_str = command_list[i];
+		cmd->cmd_id = i;
 		command_hash_table[hash] = cmd;
 	}
 }
@@ -93,61 +95,136 @@ bool classify_request(struct Request *req)
 			break;
 		}
 	}
+
 	return moreSearchFlag ? 
 		(get_command(req->token[0]) == NULL ? false : true) : true;
 }
 
-void process_request(struct Request *req)
+bool process_request(struct Request *req)
 {
+	bool ret;
+
 	switch(req->id) {
 		case REQUEST_ID_CREATE:
-			process_request_create(req);
+			ret = process_request_create(req);
 			break;
 
 		case REQUEST_ID_DELETE:
-			process_request_delete(req);
+			ret = process_request_delete(req);
 			break;
 
 		case REQUEST_ID_DUMPDATA:
-			process_request_dumpdata(req);
+			ret = process_request_dumpdata(req);
 			break;
 
 		case REQUEST_ID_QUIT:
+			ret = false;
 			break;
 
 		default:	// command
-			process_request_command(req);
+			ret = process_request_command(req);
 	}
+
+	return ret;
 }
 
-void process_request_create(struct Request *req)
+bool process_request_create(struct Request *req)
+{
+	// need error handling when token_cnt < 3
+	if(req->token_cnt < 3) {
+		return false;
+	}
+	
+	WrapDataStructure *wds;
+	unsigned int hash;
+
+	hash = hash_wds(req->token[2]);
+	if(wds_hash_table[hash]) {
+		return false;
+	}
+
+	wds = malloc(sizeof WrapDataStructure);
+	strncpy(wds->name, req->token[2], sizeof wds->name);
+
+	if(strcmp(req->token[1], "list") == 0) {
+		wds->type = DATA_STRUCTURE_TYPE_LIST;
+		wds->ds = malloc(sizeof struct list);
+		list_init(wds->ds);
+	}
+	else if(strcmp(req->token[1], "hashtable") == 0) {
+		wds->type = DATA_STRUCTURE_TYPE_HASHTABLE;
+		//wds->ds = malloc(sizeof struct hash);
+	}
+	else if(strcmp(req->token[1], "bitmap") == 0) {
+		wds->type = DATA_STRUCTURE_TYPE_BITMAP;
+	}
+	else {
+		// error handling
+	}
+
+	return true;
+}
+
+bool process_request_delete(struct Request *req)
+{
+	WrapDataStructure *pDel;
+	unsigned int hash, prevHash, curHash;
+
+	hash = hash_wds(req->token[1]);
+	if(!(pDel = wds_hash_table[hash])) {
+		return false;
+	}
+
+	prevHash = hash;
+	curHash = hash_string_func_for_collision(prevHash, wds_hash_table[prevHash]->name);
+	while(wds_hash_table[curHash]) {
+		wds_hash_table[prevHash] = wds_hash_table[curHash];
+		prevHash = curHash;
+		curHash = hash_string_func_for_collision(prevHash, wds_hash_table[prevHash]->name);
+	}
+
+	// destroy data structure
+
+	return true;
+}
+
+bool process_request_dumpdata(struct Request *req)
 {
 }
 
-void process_request_delete(struct Request *req)
+bool process_request_command(struct Request *req)
 {
 }
 
-void process_request_dumpdata(struct Request *req)
+inline struct Command* get_command(const char *cmd_str)
 {
-}
-
-void process_request_command(struct Request *req)
-{
-}
-
-struct Command* get_command(char *cmd_str)
-{
-	int hash = hash_command(cmd_str);
+	unsigned int hash = hash_command(cmd_str);
 	return command_hash_table[hash];
 }
 
-unsigned int hash_command(char *cmd_str)
+unsigned int hash_command(const char *cmd_str)
 {
-	int hash = hash_string_func(cmd_str);
+	unsigned int hash = hash_string_func(cmd_str);
 
 	while(command_hash_table[hash] && strcmp(command_hash_table[hash]->cmd_str, cmd_str) != 0) {
-		hash = (hash * 585 + cmd_str[0]) % HASH_SIZE;
+		hash = hash_string_func_for_collision(hash, cmd_str);
+	}
+
+	return hash;
+}
+
+inline struct WrapDataStructure* get_wds(const char *name)
+{
+	unsigned int hash = hash_wds(name);
+	return wds_hash_table[hash];
+}
+
+unsigned int hash_wds(const char *name)
+{
+	unsigned int hash = hash_string_func(name);
+
+	while(wds_hash_table[hash] && strcmp(wds_hash_table[hash]->name, name) != 0) {
+		hash = hash_string_func_for_collision(hash, name);
 	}
 
 	return hash;
@@ -160,4 +237,9 @@ unsigned int hash_string_func(const char *str)
 	while(c = *str++)
 		hash = (hash * 585) + c;
 	return hash % HASH_SIZE;
+}
+
+inline unsigned int hash_string_func_for_collision(unsigned int hash, const char *str)
+{
+	return (hash * 585 + str[0]) % HASH_SIZE;
 }
