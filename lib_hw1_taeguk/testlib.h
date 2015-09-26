@@ -55,10 +55,12 @@ bool process_request_delete(struct Request *);
 bool process_request_dumpdata(struct Request *);
 bool process_request_command(struct Request *);
 
+WrapDataStructure* find_wds_by_name(const char *);
+WrapDataStructure* get_available_wds(void);
+bool destory_wds(WrapDataStructure*);
+
 inline struct Command* get_command(const char *);
 unsigned int hash_command(const char *);
-inline struct WrapDataStructure* get_wds(const char *);
-unsigned int hash_wds(const char *);
 unsigned int hash_string_func(const char *);
 inline unsigned int hash_string_func_for_collision(unsigned int, const char *);
 

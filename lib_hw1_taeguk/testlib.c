@@ -18,8 +18,12 @@ const char *command_list[] =
 };
 
 struct Command *command_hash_table[HASH_SIZE];
-struct WrapDataStructure *wds_hash_table[HASH_SIZE];
-int wds_cnt;
+
+struct WrapDataStructure *wds_arr[MAX_DATA_STRUCTURE_NUM];
+int wds_pool[MAX_DATA_STRUCTURE_NUM];
+int wds_pool_top;
+bool wds_is_using_idx[MAX_DATA_STRUCTURE_NUM];
+
 
 int main(void)
 {
@@ -49,6 +53,11 @@ void initialize(void)
 		cmd->cmd_str = command_list[i];
 		cmd->cmd_id = i;
 		command_hash_table[hash] = cmd;
+	}
+
+	wds_pool_top = MAX_DATA_STRUCTURE_NUM - 1;
+	for(i = 0; i < MAX_DATA_STRUCTURE_NUM; ++i) {
+		wds_pool[i] = i;
 	}
 }
 
@@ -138,12 +147,15 @@ bool process_request_create(struct Request *req)
 	WrapDataStructure *wds;
 	unsigned int hash;
 
-	hash = hash_wds(req->token[2]);
-	if(wds_hash_table[hash]) {
+	if(find_wds_by_name(req->token[2])) {
 		return false;
 	}
 
-	wds = malloc(sizeof WrapDataStructure);
+	wds = get_available_wds();
+	if(!wds) {
+		return false;
+	}
+
 	strncpy(wds->name, req->token[2], sizeof wds->name);
 
 	if(strcmp(req->token[1], "list") == 0) {
@@ -168,22 +180,13 @@ bool process_request_create(struct Request *req)
 bool process_request_delete(struct Request *req)
 {
 	WrapDataStructure *pDel;
-	unsigned int hash, prevHash, curHash;
 
-	hash = hash_wds(req->token[1]);
-	if(!(pDel = wds_hash_table[hash])) {
+	pDel = find_wds_by_name(req->token[1]);
+	if(!pDel) {
 		return false;
 	}
 
-	prevHash = hash;
-	curHash = hash_string_func_for_collision(prevHash, wds_hash_table[prevHash]->name);
-	while(wds_hash_table[curHash]) {
-		wds_hash_table[prevHash] = wds_hash_table[curHash];
-		prevHash = curHash;
-		curHash = hash_string_func_for_collision(prevHash, wds_hash_table[prevHash]->name);
-	}
-
-	// destroy data structure
+	destory_wds(pDel);
 
 	return true;
 }
@@ -194,6 +197,48 @@ bool process_request_dumpdata(struct Request *req)
 
 bool process_request_command(struct Request *req)
 {
+}
+
+WrapDataStructure* find_wds_by_name(const char *name)
+{
+	WrapDataStructure *res = NULL;
+	int i;
+
+	for(i = 0; i < MAX_DATA_STRUCTURE_NUM; ++i) {
+		if(!wds_is_using_idx[i])
+			continue;
+		if(strncmp(wds_arr[i]->name, name, sizeof wds_arr[i]->name) == 0) {
+			res = &wds_arr[i];
+			break;
+		}
+	}
+
+	return res;
+}
+
+WrapDataStructure* get_available_wds(void)
+{
+	if(wds_pool_top >= 0) {
+		int idx = wds_pool[wds_pool_top--];
+		wds_is_using_idx[idx] = true;
+		return wds_arr[idx];
+	}
+	else {
+		return NULL;
+	}
+}
+
+bool destory_wds(WrapDataStructure* pDel)
+{
+	int idx;
+
+	// destroy ds
+	
+	idx = pDel - wds_arr;
+	wds_arr[++wds_pool_top] = idx;
+	wds_is_using_idx[idx] = false;
+
+	return true;
 }
 
 inline struct Command* get_command(const char *cmd_str)
@@ -208,23 +253,6 @@ unsigned int hash_command(const char *cmd_str)
 
 	while(command_hash_table[hash] && strcmp(command_hash_table[hash]->cmd_str, cmd_str) != 0) {
 		hash = hash_string_func_for_collision(hash, cmd_str);
-	}
-
-	return hash;
-}
-
-inline struct WrapDataStructure* get_wds(const char *name)
-{
-	unsigned int hash = hash_wds(name);
-	return wds_hash_table[hash];
-}
-
-unsigned int hash_wds(const char *name)
-{
-	unsigned int hash = hash_string_func(name);
-
-	while(wds_hash_table[hash] && strcmp(wds_hash_table[hash]->name, name) != 0) {
-		hash = hash_string_func_for_collision(hash, name);
 	}
 
 	return hash;
