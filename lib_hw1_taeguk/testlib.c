@@ -1,6 +1,15 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "list.h"
+#include "hash.h"
+#include "bitmap.h"
 #include "testlib.h"
+#include "test_list.h"
+#include "test_hash.h"
+#include "test_bitmap.h"
 
-const char *command_list[] = 
+static const char *command_list[] = 
 {
 	"list_insert", "list_splice", "list_push", "list_push_front", "list_push_back",
 	"list_remove", "list_pop_front", "list_pop_back", "list_front", "list_back",
@@ -17,13 +26,29 @@ const char *command_list[] =
 	"bitmap_scan", "bitmap_scan_and_flip", "bitmap_dump"
 };
 
-struct Command *command_hash_table[HASH_SIZE];
+static bool (*wrap_command[])(struct Request *, struct WrapDataStructure *) = 
+{
+	wrap_list_insert, wrap_list_splice, wrap_list_push, wrap_list_push_front, wrap_list_push_back,
+	wrap_list_remove, wrap_list_pop_front, wrap_list_pop_back, wrap_list_front, wrap_list_back,
+	wrap_list_size, wrap_list_empty,
+	wrap_list_reverse, wrap_list_sort, wrap_list_insert_ordered, wrap_list_unique,
+	wrap_list_max, wrap_list_min,
 
-struct WrapDataStructure *wds_arr[MAX_DATA_STRUCTURE_NUM];
-int wds_pool[MAX_DATA_STRUCTURE_NUM];
-int wds_pool_top;
-bool wds_is_using_idx[MAX_DATA_STRUCTURE_NUM];
+	wrap_hash_insert, wrap_hash_replace, wrap_hash_find, wrap_hash_delete,
+	wrap_hash_clear, wrap_hash_size, wrap_hash_empty, wrap_hash_apply,
 
+	wrap_bitmap_size, wrap_bitmap_set, wrap_bitmap_mark, wrap_bitmap_reset, wrap_bitmap_flip, wrap_bitmap_test,
+	wrap_bitmap_set_all, wrap_bitmap_set_multiple, wrap_bitmap_count, wrap_bitmap_contains,
+	wrap_bitmap_any, wrap_bitmap_none, wrap_bitmap_all,
+	wrap_bitmap_scan, wrap_bitmap_scan_and_flip, wrap_bitmap_dump
+};
+
+static struct Command *command_hash_table[HASH_SIZE];
+
+static struct WrapDataStructure *wds_arr[MAX_DATA_STRUCTURE_NUM];
+static int wds_pool[MAX_DATA_STRUCTURE_NUM];
+static int wds_pool_top;
+static bool wds_is_using_idx[MAX_DATA_STRUCTURE_NUM];
 
 int main(void)
 {
@@ -145,7 +170,6 @@ bool process_request_create(struct Request *req)
 	}
 	
 	WrapDataStructure *wds;
-	unsigned int hash;
 
 	if(find_wds_by_name(req->token[2])) {
 		return false;
@@ -165,10 +189,19 @@ bool process_request_create(struct Request *req)
 	}
 	else if(strcmp(req->token[1], "hashtable") == 0) {
 		wds->type = DATA_STRUCTURE_TYPE_HASHTABLE;
-		//wds->ds = malloc(sizeof struct hash);
+		wds->ds = malloc(sizeof struct hash);
+		hash_init(wds->ds, h_hash_func, h_less_func, 0);
 	}
 	else if(strcmp(req->token[1], "bitmap") == 0) {
+		int bit_cnt;
+		if(req->token_cnt < 4) {
+			wds->type = DATA_STRUCTURE_TYPE_NOPE;
+			destory_wds(wds);
+			return false;
+		}
+		bit_cnt = atoi(req->token[3]);
 		wds->type = DATA_STRUCTURE_TYPE_BITMAP;
+		wds->ds = bitmap_create(bit_cnt);
 	}
 	else {
 		// error handling
@@ -193,10 +226,71 @@ bool process_request_delete(struct Request *req)
 
 bool process_request_dumpdata(struct Request *req)
 {
+	// need error handling when token_cnt < 2
+	if(req->token_cnt < 2) {
+		return false;
+	}
+	
+	WrapDataStructure *wds;
+
+	if(!(wds = find_wds_by_name(req->token[1]))) {
+		return false;
+	}
+
+	switch(wds->ds_type) {
+		
+		case DATA_STRUCTURE_TYPE_LIST: 
+		{
+			struct list *list = wds->ds;
+			struct list_elem *e;
+			for(e = list_begin(list); e != list_end(list); e = list_next(e)) {
+				struct ListItem *item = list_entry(e, struct ListItem, elem);
+				fprintf(stdout, "%d ", item->data);
+			}
+			fprintf(stdout, "\n");
+		}
+			break;
+
+		case DATA_STRUCTURE_TYPE_HASHTABLE:
+		{
+			struct hash *h = wds->ds;
+			struct hash_iterator *iter;
+			for(hash_first(iter, h); hash_cur(iter) != NULL; hash_next(iter)) {
+				struct HashItem *item = hash_entry(hash_cur(iter), struct HashItem, elem);
+				fprintf(stdout, "%d ", item->data);
+			}
+			fprintf(stdout, "\n");
+		}
+			break;
+
+		case DATA_STRUCTURE_TYPE_BITMAP:
+			// I don't know what i code... :(
+			break;
+
+		default:
+			return false;
+	}
 }
 
 bool process_request_command(struct Request *req)
 {
+	// need error handling when token_cnt < 2
+	if(req->token_cnt < 2) {
+		return false;
+	}
+	
+	struct Command *cmd;
+	struct WrapDataStructure *wds;
+
+	if(!(cmd = get_command(req->token[0]))) {
+		return false;
+	}
+
+	if(!(wds = find_wds_by_name(req->token[1]))) {
+		return false;
+	}
+
+	return wrap_command[cmd->cmd_id](req, wds);
 }
 
 WrapDataStructure* find_wds_by_name(const char *name)
@@ -233,6 +327,36 @@ bool destory_wds(WrapDataStructure* pDel)
 	int idx;
 
 	// destroy ds
+	switch(wds->ds_type) {
+		
+		case DATA_STRUCTURE_TYPE_LIST:
+		{
+			struct list *list = pDel->ds;
+
+			while(!list_empty(list)) {
+				struct list_elem *elem = list_pop_front(list);
+				struct ListItem *item = list_entry(elem, struct ListItem, elem);
+				free(item);
+			}
+			free(list);
+		}
+			break;
+
+		case DATA_STRUCTURE_TYPE_HASHTABLE:
+			hash_destroy(pDel->ds, NULL);
+			free(pDel->ds);
+			break;
+
+		case DATA_STRUCTURE_TYPE_BITMAP:
+			bitmap_destroy(pDel->ds);
+			break;
+
+		case DATA_STRUCTURE_TYPE_NOPE:
+			break;
+
+		default:
+			return false;
+	}
 	
 	idx = pDel - wds_arr;
 	wds_arr[++wds_pool_top] = idx;
