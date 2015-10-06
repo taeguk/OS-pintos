@@ -382,7 +382,7 @@ bitmap_extend (struct bitmap *bitmap, int size)
 	if(!bitmap || size <= bitmap_size(bitmap))
 		return NULL;
 
-	nb = malloc(sizeof *nob);
+	nb = malloc(sizeof *nb);
 	if(!nb)
 		return NULL;
 
