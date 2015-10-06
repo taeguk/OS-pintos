@@ -264,7 +264,15 @@ bool process_request_dumpdata(struct Request *req)
 			break;
 
 		case DATA_STRUCTURE_TYPE_BITMAP:
-			// I don't know what i code... :(
+		{
+			struct bitmap *bitmap = wds->ds;
+			size_t size = bitmap_size(bitmap);
+			int i;
+			for (i = 0; i < size; i++) {
+				fprintf(stdout, "%d", (bitmap_test(bitmap, i) ? 1 : 0));
+			}
+			fprintf(stdout, "\n");
+		}
 			break;
 
 		default:
