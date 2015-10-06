@@ -1,4 +1,6 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include "testlib.h"
 #include "test_list.h"
 #include "list.h"
 
@@ -19,7 +21,7 @@ bool wrap_list_insert(struct Request *req, struct WrapDataStructure *wds[])
 
 	e = list_find_nth(list, idx);
 
-	new_item = malloc(sizeof struct ListItem);
+	new_item = malloc(sizeof(struct ListItem));
 	new_item->data = val;
 	
 	list_insert(e, (struct list_elem*) new_item);
@@ -47,7 +49,8 @@ bool wrap_list_splice(struct Request *req, struct WrapDataStructure *wds[])
 
 bool wrap_list_push(struct Request *req, struct WrapDataStructure *wds[])
 {
-
+	// i don't know what i do :(
+	return wrap_list_push_front(req, wds);
 }
 
 bool wrap_list_push_front(struct Request *req, struct WrapDataStructure *wds[])
@@ -56,7 +59,7 @@ bool wrap_list_push_front(struct Request *req, struct WrapDataStructure *wds[])
 	int val = atoi(req->token[2]);
 	struct ListItem *new_item;
 
-	new_item = malloc(sizeof struct ListItem);
+	new_item = malloc(sizeof(struct ListItem));
 	new_item->data = val;
 	
 	list_push_front(list, (struct list_elem*) new_item);
@@ -70,7 +73,7 @@ bool wrap_list_push_back(struct Request *req, struct WrapDataStructure *wds[])
 	int val = atoi(req->token[2]);
 	struct ListItem *new_item;
 
-	new_item = malloc(sizeof struct ListItem);
+	new_item = malloc(sizeof(struct ListItem));
 	new_item->data = val;
 	
 	list_push_back(list, (struct list_elem*) new_item);
@@ -88,14 +91,19 @@ bool wrap_list_remove(struct Request *req, struct WrapDataStructure *wds[])
 
 	list_remove(e);
 
+	free(list_entry(e, struct ListItem, elem));
+
 	return true;
 }
 
 bool wrap_list_pop_front(struct Request *req, struct WrapDataStructure *wds[])
 {
 	struct list *list = (struct list*) wds[0]->ds;
+	struct list_elem *e;
 
-	list_pop_front(list);
+	e = list_pop_front(list);
+	
+	free(list_entry(e, struct ListItem, elem));
 
 	return true;
 }
@@ -103,8 +111,11 @@ bool wrap_list_pop_front(struct Request *req, struct WrapDataStructure *wds[])
 bool wrap_list_pop_back(struct Request *req, struct WrapDataStructure *wds[])
 {
 	struct list *list = (struct list*) wds[0]->ds;
+	struct list_elem *e;
 
-	list_pop_back(list);
+	e = list_pop_back(list);
+
+	free(list_entry(e, struct ListItem, elem));
 
 	return true;
 }
@@ -185,7 +196,7 @@ bool wrap_list_insert_ordered(struct Request *req, struct WrapDataStructure *wds
 	int val = atoi(req->token[2]);
 	struct ListItem *item;
 
-	item = malloc(sizeof struct ListItem);
+	item = malloc(sizeof(struct ListItem));
 	item->data = val;
 
 	list_insert_ordered(list, (struct list_elem*) item, l_less_func, NULL);

@@ -2,6 +2,7 @@
 #define __LIB_KERNEL_TEST_LIST_H
 
 #include "list.h"
+#include "testlib.h"
 
 struct ListItem {
 	struct list_elem elem;
