@@ -15,7 +15,7 @@
 #define REQUEST_ID_DELETE			2
 #define	REQUEST_ID_DUMPDATA			3
 #define REQUEST_ID_QUIT				4
-#define REQUEST_ID_COMMNAD_START	100
+#define REQUEST_ID_COMMAND_START	100
 
 #define MAX_DATA_STRUCTURE_NAME_SIZE	100
 #define MAX_DATA_STRUCTURE_NUM			30
@@ -49,7 +49,7 @@ struct Command {
  * Structure for wrapping data structure that we will test.
  */
 struct WrapDataStructure {
-	struct void *ds;
+	void *ds;
 	int ds_type;
 	char name[MAX_DATA_STRUCTURE_NAME_SIZE];
 };
@@ -58,7 +58,7 @@ struct WrapDataStructure {
  * Initializing and cleaning resources.
  */
 void initialize(void);
-void cleanResource(void);
+void clean_resource(void);
 
 /*
  * Prompt input from user.
@@ -86,9 +86,9 @@ bool get_wds_for_command(struct Request *req, struct Command *cmd, struct WrapDa
  * Getting available wds to use.
  * Destroy wds.
  */
-WrapDataStructure* find_wds_by_name(const char *);
-WrapDataStructure* get_available_wds(void);
-bool destory_wds(WrapDataStructure *);
+struct WrapDataStructure* find_wds_by_name(const char *);
+struct WrapDataStructure* get_available_wds(void);
+bool destroy_wds(struct WrapDataStructure *);
 
 /*
  * Hash for command_hash_table.
