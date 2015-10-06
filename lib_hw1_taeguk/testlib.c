@@ -26,7 +26,7 @@ static const char *command_list[] =
 	"bitmap_scan", "bitmap_scan_and_flip", "bitmap_dump"
 };
 
-static bool (*wrap_command[])(struct Request *, struct WrapDataStructure *) = 
+static bool (*wrap_command[])(struct Request *, struct WrapDataStructure *[]) = 
 {
 	wrap_list_insert, wrap_list_splice, wrap_list_push, wrap_list_push_front, wrap_list_push_back,
 	wrap_list_remove, wrap_list_pop_front, wrap_list_pop_back, wrap_list_front, wrap_list_back,
@@ -280,17 +280,33 @@ bool process_request_command(struct Request *req)
 	}
 	
 	struct Command *cmd;
-	struct WrapDataStructure *wds;
+	struct WrapDataStructure *wds[2];
+	bool MultipleWdsFlag = false;
 
 	if(!(cmd = get_command(req->token[0]))) {
 		return false;
 	}
 
-	if(!(wds = find_wds_by_name(req->token[1]))) {
+	if(!get_wds_for_command(req, cmd, wds)) {
 		return false;
 	}
 
 	return wrap_command[cmd->cmd_id](req, wds);
+}
+
+bool get_wds_for_command(struct Request *req, struct Command *cmd, struct WrapDataStructure *wds[])
+{
+	if(!(wds[0] = find_wds_by_name(req->token[1]))) {
+		return false;
+	}
+
+	if(strcmp(cmd->cmd_str, "list_splice") == 0) {	
+		if(!(wds[1] = find_wds_by_name(req->token[3]))) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 WrapDataStructure* find_wds_by_name(const char *name)

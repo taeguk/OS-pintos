@@ -76,6 +76,11 @@ bool process_request_delete(struct Request *);
 bool process_request_dumpdata(struct Request *);
 bool process_request_command(struct Request *);
 
+/*
+ * Get command's wds to need.
+ */
+bool get_wds_for_command(struct Request *req, struct Command *cmd, struct WrapDataStructure *wds[]);
+
 /* 
  * Finding wds.
  * Getting available wds to use.
