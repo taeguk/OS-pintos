@@ -29,5 +29,6 @@ bool wrap_list_insert_ordered(struct Request *req, struct WrapDataStructure *wds
 bool wrap_list_unique(struct Request *req, struct WrapDataStructure *wds[]);
 bool wrap_list_max(struct Request *req, struct WrapDataStructure *wds[]);
 bool wrap_list_min(struct Request *req, struct WrapDataStructure *wds[]);
+bool wrap_list_swap(struct Request *req, struct WrapDataStructure *wds[]);
 
 #endif

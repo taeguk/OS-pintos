@@ -15,7 +15,7 @@ static const char *command_list[] =
 	"list_remove", "list_pop_front", "list_pop_back", "list_front", "list_back",
 	"list_size", "list_empty",
 	"list_reverse", "list_sort", "list_insert_ordered", "list_unique",
-	"list_max", "list_min",
+	"list_max", "list_min", "list_swap",
 
 	"hash_insert", "hash_replace", "hash_find", "hash_delete",
 	"hash_clear", "hash_size", "hash_empty", "hash_apply",
@@ -32,7 +32,7 @@ static bool (*wrap_command[])(struct Request *, struct WrapDataStructure *[]) =
 	wrap_list_remove, wrap_list_pop_front, wrap_list_pop_back, wrap_list_front, wrap_list_back,
 	wrap_list_size, wrap_list_empty,
 	wrap_list_reverse, wrap_list_sort, wrap_list_insert_ordered, wrap_list_unique,
-	wrap_list_max, wrap_list_min,
+	wrap_list_max, wrap_list_min, wrap_list_swap,
 
 	wrap_hash_insert, wrap_hash_replace, wrap_hash_find, wrap_hash_delete,
 	wrap_hash_clear, wrap_hash_size, wrap_hash_empty, wrap_hash_apply,
@@ -57,8 +57,9 @@ int main(void)
 	initialize();
 
 	do {
-		if(!fetch_request(&req)) {
+		while(!fetch_request(&req)) {
 			// error handling
+			fprintf(stderr, "Invalid input\n");
 		}
 	} while(process_request(&req));
 	// need specific error handling when process_request returns "false"
@@ -103,9 +104,9 @@ bool fetch_request(struct Request *req)
 	fgets(input, MAX_INPUT_SIZE, stdin);
 
 	req->token_cnt = 0;
-	req->token[req->token_cnt] = strtok(input, " \t");
+	req->token[req->token_cnt] = strtok(input, " \t\n");
 	while(req->token_cnt <= MAX_REQUEST_TOKEN_NUM && req->token[req->token_cnt]) {
-		req->token[++req->token_cnt] = strtok(input, " \t");
+		req->token[++req->token_cnt] = strtok(NULL, " \t\n");
 	}
 
 	if(req->token_cnt <= 0 || req->token_cnt > MAX_REQUEST_TOKEN_NUM)
@@ -121,6 +122,7 @@ bool classify_request(struct Request *req)
 	int i;
 	bool moreSearchFlag = true;
 	
+	req->id = REQUEST_ID_ELSE;
 	for(i = 0; i < sizeof(req_table) / sizeof(char*); ++i) {
 		if(strcmp(req->token[0], req_table[i]) == 0) {
 			req->id = req_id_table[i];
@@ -136,6 +138,8 @@ bool classify_request(struct Request *req)
 bool process_request(struct Request *req)
 {
 	bool ret;
+	
+	//fprintf(stderr, "[Debug] process_request - %s - %d\n", req->token[0], req->id);
 
 	switch(req->id) {
 		case REQUEST_ID_CREATE:
@@ -281,15 +285,17 @@ bool process_request_dumpdata(struct Request *req)
 
 bool process_request_command(struct Request *req)
 {
+	struct Command *cmd;
+	struct WrapDataStructure *wds[2];
+	bool MultipleWdsFlag = false;
+
+	//fprintf(stderr, "[Debug] process_request_command - %s\n", req->token[0]);
+	
 	// need error handling when token_cnt < 2
 	if(req->token_cnt < 2) {
 		return false;
 	}
 	
-	struct Command *cmd;
-	struct WrapDataStructure *wds[2];
-	bool MultipleWdsFlag = false;
-
 	if(!(cmd = get_command(req->token[0]))) {
 		return false;
 	}
@@ -297,6 +303,8 @@ bool process_request_command(struct Request *req)
 	if(!get_wds_for_command(req, cmd, wds)) {
 		return false;
 	}
+
+	//fprintf(stderr, "[Debug] process_request_command -- %d\n", cmd->cmd_id);
 
 	return wrap_command[cmd->cmd_id](req, wds);
 }

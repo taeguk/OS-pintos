@@ -550,22 +550,53 @@ list_find_nth (struct list *list, size_t n)
 void 
 list_swap (struct list_elem *a, struct list_elem *b)
 {
-	struct list_elem *prevA, *nextA, *prevB, *nextB;
-
 	ASSERT (a && b);
 
-	prevA = a->prev; nextA = a->next;
-	prevB = b->prev; nextB = b->next;
+	if(a == b)
+		return;
 
-	a->prev = prevB;
-	a->next = nextB;
-	b->prev = prevA;
-	b->next = nextB;
+	if(a->next == b) {
+		struct list_elem *prev, *next;
 
-	if(prevA) prevA->next = b;
-	if(nextA) nextA->prev = b;
-	if(prevB) prevB->next = a;
-	if(nextB) nextB->prev = a;
+		prev = a->prev; next = b->next;
+		
+		a->prev = b;
+		a->next = next;
+		b->prev = prev;
+		b->next = a;
+
+		if(prev) prev->next = b;
+		if(next) next->prev = a;
+	}
+	else if(b->next == a) {
+		struct list_elem *prev, *next;
+
+		prev = b->prev; next = a->next;
+		
+		b->prev = a;
+		b->next = next;
+		a->prev = prev;
+		a->next = b;
+
+		if(prev) prev->next = a;
+		if(next) next->prev = b;
+	}
+	else {
+		struct list_elem *prevA, *nextA, *prevB, *nextB;
+
+		prevA = a->prev; nextA = a->next;
+		prevB = b->prev; nextB = b->next;
+
+		a->prev = prevB;
+		a->next = nextB;
+		b->prev = prevA;
+		b->next = nextA;
+
+		if(prevA) prevA->next = b;
+		if(nextA) nextA->prev = b;
+		if(prevB) prevB->next = a;
+		if(nextB) nextB->prev = a;
+	}
 }
 
 void 

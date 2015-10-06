@@ -19,6 +19,8 @@ bool wrap_list_insert(struct Request *req, struct WrapDataStructure *wds[])
 	struct ListItem *new_item;
 	struct list_elem *e;
 
+	//fprintf(stderr, "[Debug] wrap_list_insert with %s\n", wds[0]->name);
+
 	e = list_find_nth(list, idx);
 
 	new_item = malloc(sizeof(struct ListItem));
@@ -242,3 +244,17 @@ bool wrap_list_min(struct Request *req, struct WrapDataStructure *wds[])
 	return true;
 }
 
+bool wrap_list_swap(struct Request *req, struct WrapDataStructure *wds[])
+{
+	struct list *list = (struct list*) wds[0]->ds;
+	int idx1 = atoi(req->token[2]);
+	int idx2 = atoi(req->token[3]);
+	struct list_elem *e1, *e2;
+
+	e1 = list_find_nth(list, idx1);
+	e2 = list_find_nth(list, idx2);
+
+	list_swap(e1, e2);
+
+	return true;
+}
