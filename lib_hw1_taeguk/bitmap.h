@@ -49,6 +49,6 @@ bool bitmap_write (const struct bitmap *, struct file *);
 void bitmap_dump (const struct bitmap *);
 
 /* Additional functions by taeguk */
-struct bitmap *bitmap_extend (struct bitmap *, int);
+struct bitmap *bitmap_expand (struct bitmap *, int);
 
 #endif /* lib/kernel/bitmap.h */

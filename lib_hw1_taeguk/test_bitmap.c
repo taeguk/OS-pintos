@@ -2,6 +2,7 @@
 #include "testlib.h"
 #include "test_bitmap.h"
 #include "bitmap.h"
+#include "string.h"
 
 bool wrap_bitmap_size(struct Request *req, struct WrapDataStructure *wds[])
 {
@@ -191,6 +192,20 @@ bool wrap_bitmap_dump(struct Request *req, struct WrapDataStructure *wds[])
 	struct bitmap *bitmap = wds[0]->ds;
 
 	bitmap_dump(bitmap);
+
+	return true;
+}
+
+bool wrap_bitmap_expand(struct Request *req, struct WrapDataStructure *wds[])
+{
+	struct bitmap *bitmap = wds[0]->ds;
+	int val = atoi(req->token[2]);
+	struct bitmap *nb;
+
+	nb = bitmap_expand(bitmap, val);
+	if(nb) {
+		wds[0]->ds = (void*) nb;
+	}
 
 	return true;
 }

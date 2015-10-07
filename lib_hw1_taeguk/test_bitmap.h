@@ -24,4 +24,6 @@ bool wrap_bitmap_scan(struct Request *req, struct WrapDataStructure *wds[]);
 bool wrap_bitmap_scan_and_flip(struct Request *req, struct WrapDataStructure *wds[]);
 bool wrap_bitmap_dump(struct Request *req, struct WrapDataStructure *wds[]);
 
+bool wrap_bitmap_expand(struct Request *req, struct WrapDataStructure *wds[]);
+
 #endif

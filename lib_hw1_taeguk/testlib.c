@@ -23,7 +23,7 @@ static const char *command_list[] =
 	"bitmap_size", "bitmap_set", "bitmap_mark", "bitmap_reset", "bitmap_flip", "bitmap_test",
 	"bitmap_set_all", "bitmap_set_multiple", "bitmap_count", "bitmap_contains",
 	"bitmap_any", "bitmap_none", "bitmap_all",
-	"bitmap_scan", "bitmap_scan_and_flip", "bitmap_dump"
+	"bitmap_scan", "bitmap_scan_and_flip", "bitmap_dump", "bitmap_expand"
 };
 
 static bool (*wrap_command[])(struct Request *, struct WrapDataStructure *[]) = 
@@ -40,7 +40,7 @@ static bool (*wrap_command[])(struct Request *, struct WrapDataStructure *[]) =
 	wrap_bitmap_size, wrap_bitmap_set, wrap_bitmap_mark, wrap_bitmap_reset, wrap_bitmap_flip, wrap_bitmap_test,
 	wrap_bitmap_set_all, wrap_bitmap_set_multiple, wrap_bitmap_count, wrap_bitmap_contains,
 	wrap_bitmap_any, wrap_bitmap_none, wrap_bitmap_all,
-	wrap_bitmap_scan, wrap_bitmap_scan_and_flip, wrap_bitmap_dump
+	wrap_bitmap_scan, wrap_bitmap_scan_and_flip, wrap_bitmap_dump, wrap_bitmap_expand
 };
 
 static struct Command *command_hash_table[HASH_SIZE];
@@ -139,8 +139,6 @@ bool process_request(struct Request *req)
 {
 	bool ret;
 	
-	//fprintf(stderr, "[Debug] process_request - %s - %d\n", req->token[0], req->id);
-
 	switch(req->id) {
 		case REQUEST_ID_CREATE:
 			ret = process_request_create(req);
@@ -258,7 +256,7 @@ bool process_request_dumpdata(struct Request *req)
 		{
 			struct hash *h = wds->ds;
 			struct hash_iterator *iter;
-			for(hash_first(iter, h); hash_cur(iter) != NULL; hash_next(iter)) {
+			for(hash_first(iter, h); hash_next(iter);) {
 				struct HashItem *item = hash_entry(hash_cur(iter), struct HashItem, elem);
 				fprintf(stdout, "%d ", item->data);
 			}
@@ -289,8 +287,6 @@ bool process_request_command(struct Request *req)
 	struct WrapDataStructure *wds[2];
 	bool MultipleWdsFlag = false;
 
-	//fprintf(stderr, "[Debug] process_request_command - %s\n", req->token[0]);
-	
 	// need error handling when token_cnt < 2
 	if(req->token_cnt < 2) {
 		return false;
@@ -304,8 +300,6 @@ bool process_request_command(struct Request *req)
 		return false;
 	}
 
-	//fprintf(stderr, "[Debug] process_request_command -- %d\n", cmd->cmd_id);
-
 	return wrap_command[cmd->cmd_id](req, wds);
 }
 
@@ -317,6 +311,12 @@ bool get_wds_for_command(struct Request *req, struct Command *cmd, struct WrapDa
 
 	if(strcmp(cmd->cmd_str, "list_splice") == 0) {	
 		if(!(wds[1] = find_wds_by_name(req->token[3]))) {
+			return false;
+		}
+	}
+	else if(strcmp(cmd->cmd_str, "list_unique") == 0) {
+		wds[1] = NULL;
+		if(req->token_cnt >= 3 && !(wds[1] = find_wds_by_name(req->token[2]))) {
 			return false;
 		}
 	}

@@ -62,7 +62,7 @@ bool wrap_hash_replace(struct Request *req, struct WrapDataStructure *wds[])
 	new_item = malloc(sizeof(struct HashItem));
 	new_item->data = val;
 
-	if(old = hash_insert(h, (struct hash_elem*) new_item)) {
+	if(old = hash_replace(h, (struct hash_elem*) new_item)) {
 		struct HashItem *old_item = hash_entry(old, struct HashItem, elem);
 		free(old_item);
 	}

@@ -375,25 +375,27 @@ bitmap_dump (const struct bitmap *b)
 }
 
 struct bitmap *
-bitmap_extend (struct bitmap *bitmap, int size)
+bitmap_expand (struct bitmap *bitmap, int size)
 {
 	struct bitmap *nb;
+	size_t old_sz;
 
-	if(!bitmap || size <= bitmap_size(bitmap))
+	if(!bitmap)
 		return NULL;
 
 	nb = malloc(sizeof *nb);
 	if(!nb)
 		return NULL;
 
-	nb->bit_cnt = size;
-	nb->bits = realloc(bitmap->bits, byte_cnt(size));
+	old_sz = bitmap_size(bitmap);
+	nb->bit_cnt = old_sz + size;
+	nb->bits = realloc(bitmap->bits, byte_cnt(nb->bit_cnt));
 	if(!nb->bits) {
 		free(nb);
 		return NULL;
 	}
 
-	bitmap_set_all (nb, false);
+	bitmap_set_multiple (nb, old_sz, size, false);
 	free(bitmap);
 	return nb;
 }

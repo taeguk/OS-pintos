@@ -19,8 +19,6 @@ bool wrap_list_insert(struct Request *req, struct WrapDataStructure *wds[])
 	struct ListItem *new_item;
 	struct list_elem *e;
 
-	//fprintf(stderr, "[Debug] wrap_list_insert with %s\n", wds[0]->name);
-
 	e = list_find_nth(list, idx);
 
 	new_item = malloc(sizeof(struct ListItem));
@@ -209,7 +207,7 @@ bool wrap_list_insert_ordered(struct Request *req, struct WrapDataStructure *wds
 bool wrap_list_unique(struct Request *req, struct WrapDataStructure *wds[])
 {
 	struct list *list1 = (struct list*) wds[0]->ds;
-	struct list *list2 = (struct list*) wds[1]->ds;
+	struct list *list2 = (wds[1] ? (struct list*) wds[1]->ds : NULL);
 
 	list_unique(list1, list2, l_less_func, NULL);
 
