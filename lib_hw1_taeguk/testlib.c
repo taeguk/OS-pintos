@@ -374,7 +374,7 @@ bool destroy_wds(struct WrapDataStructure *pDel)
 			break;
 
 		case DATA_STRUCTURE_TYPE_HASHTABLE:
-			hash_destroy(pDel->ds, NULL);
+			hash_destroy(pDel->ds, h_free_func);
 			free(pDel->ds);
 			break;
 
