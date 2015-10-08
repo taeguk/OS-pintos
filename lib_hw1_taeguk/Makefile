@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-g
 OBJECTS=list.o hash.o bitmap.o test_list.o test_hash.o test_bitmap.o testlib.o
-TARGET=testlib.out
+TARGET=testlib
 
 all: $(TARGET)
 
