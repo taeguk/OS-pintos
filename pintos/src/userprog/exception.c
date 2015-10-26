@@ -157,5 +157,11 @@ page_fault (struct intr_frame *f)
           write ? "writing" : "reading",
           user ? "user" : "kernel");
   kill (f);
-}
 
+  // for project 2-1
+  // maybe, ?
+  // skip kill() call if not user mode, but kernel mode
+  // eip <- its former value
+  // eax <- 0xffffffff (-1)
+}
+// page_fault is must be modified.. - taeguk

@@ -15,6 +15,23 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
+  uint32_t syscall_num;
+
+  // will be coded - taeguk
   printf ("system call!\n");
-  thread_exit ();
+
+  syscall_num = * (uint32_t*) f->esp;
+
+  // call of handler of system call
+
+  // save system call's result.
+  // store return value to eax.
+
+  //thread_exit ();
 }
+
+// must implement role to check wheter address which is system call's parameter is placed at below PHYS_BASE.
+// I think making a function to check that.
+// And every system call use this function to check if address is user area.
+// Invalid pointer to user area is process in page_fault() in exception.c
+// -taeguk

@@ -88,6 +88,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  // must be implemented - taeguk
   return -1;
 }
 
@@ -221,6 +222,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  // To be added parsing file_name - taeguk
+  // file_name contains program file name and arguments.
+  // file_name is reset to purely program file name.
+
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -307,6 +312,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
+  
+  // To be added constructing esp. - taeguk
 
   success = true;
 
