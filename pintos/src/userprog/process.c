@@ -225,7 +225,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofset;
   bool success = false;
   int i, j;
-  char *cpy_file_name;
+  char *cpy_file_name = NULL;
   bool skip_flag;
   int argv_size, align_size;
   char *argv_ptr, *name_ptr;
@@ -245,6 +245,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   
   i = strlen(file_name);
   cpy_file_name = (char*) malloc(i + 1);
+  if(cpy_file_name == NULL)
+      goto done;
 
   skip_flag = false;
   argc = 0;
@@ -415,6 +417,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   
   printf("[Debug] debug F(6)\n");
+
+  if(cpy_file_name)
+      free(cpy_file_name);
+
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
