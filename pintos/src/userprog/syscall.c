@@ -131,13 +131,25 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
 static int 
 syscall_fibonacci (int n)
 {
-  return 111;  // you must modify this! This is only for compile test.
+	int a, b, c, i;
+	a = 0; b = c = 1;
+
+	if(n == 1) return 1;
+
+	for(i = 1; i < n; ++i)
+	{
+		c = a + b;
+		a = b;
+		b = c;
+	}
+
+  return c;  // you must modify this! This is only for compile test.
 }
 
 static int
 syscall_sum_of_four_integers (int a, int b, int c, int d)
 {
-  return -1;  // you must modify this! This is only for compile test.
+	return a+b+c+d;  // you must modify this! This is only for compile test.
 }
 
 static void 
@@ -165,6 +177,9 @@ syscall_wait (pid_t pid)
 static int
 syscall_read (int fd, void *buffer, unsigned size)
 {
+
+
+
   return -1;  // you must modify this! This is only for compile test.
 }
 
