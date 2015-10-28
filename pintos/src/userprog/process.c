@@ -96,6 +96,9 @@ int
 process_wait (tid_t child_tid UNUSED) 
 {
   // must be implemented - taeguk
+  int i,j;
+  for(i=0; i<30000; ++i)
+    for(j=0; j<10000; ++j);
   return -1;
 }
 
@@ -252,7 +255,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
           if(skip_flag)
               continue;
           cpy_file_name[j++] = 0;
-          ++argv_size;
           ++argc;
           skip_flag = true;
         }
@@ -264,17 +266,22 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   if(!skip_flag)
+    {
       cpy_file_name[j++] = 0;
+      ++argc;
+    }
 
   argv_size = j;
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (cpy_file_name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", cpy_file_name);
       goto done; 
     }
+
+  printf("[Debug] debug 2\n");
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -285,9 +292,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", cpy_file_name);
       goto done; 
     }
+
+  printf("[Debug] debug 3\n");
 
   /* Read program headers. */
   file_ofset = ehdr.e_phoff;
@@ -316,8 +325,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
         case PT_SHLIB:
           goto done;
         case PT_LOAD:
+          printf("[Debug] debug 3-1\n");
           if (validate_segment (&phdr, file)) 
             {
+              printf("[Debug] debug 3-1-1\n");
               bool writable = (phdr.p_flags & PF_W) != 0;
               uint32_t file_page = phdr.p_offset & ~PGMASK;
               uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
@@ -348,6 +359,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
+
+  printf("[Debug] debug 4\n");
+
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
@@ -357,7 +371,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   
   // To be added constructing esp. - taeguk
   
-  printf("[Debug] debug 1\n");
+  printf("[Debug] debug 5 - argc : %d\n", argc);
   
   argv_ptr = (char*) *esp - argv_size;
   *esp = (void*) ((uintptr_t) argv_ptr & 0xfffffffc);
@@ -365,13 +379,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
   for(i = 0; i < align_size; ++i)
       * ((char*) *esp + i) = 0;
 
-  argv = (char**) *esp - argc - 2;
-  *argv = (char*) (argv + 1);
+  *esp = (void*) ((void**) *esp - argc - 2);
+  argv = * ((char***) *esp) = (char**) ((void**) *esp + 1);
+  
+  printf("[Debug] debug 5-1 - *esp = 0x%08p, argv = 0x%08p\n", *esp, argv);
 
   name_ptr = cpy_file_name;
   for(i = 0; i < argc; ++i)
     {
-      argv[i] = (char*) *esp;
+      argv[i] = argv_ptr;
       j = 0;
       do
         {
@@ -379,20 +395,26 @@ load (const char *file_name, void (**eip) (void), void **esp)
         } 
       while(name_ptr[j++]);
       name_ptr = name_ptr+j;
-      *esp = (void*) ((char*) *esp + j);
+      argv_ptr += j;
     }
+  printf("[Debug] debug 5-2\n");
   argv[argc] = NULL;
-  * ((uint8_t*) argv[argc+1]) = 0;
-  * ((int*) argv-1) = argc;
-  * ((void (**) (void)) argv-2) = NULL;
+  printf("[Debug] debug 5-3\n");
+  * ( (int32_t*) ((void**) *esp - 1) ) = argc;
+  * ( (void (**) (void)) ((void**) *esp - 2) ) = NULL;
+  printf("[Debug] debug 5-4\n");
 
-  *esp = (void*) argv-2;
+  *esp = (void*) ((void**) *esp - 2);
+  
+  printf("[Debug] debug 5-5 - *esp = 0x%08p\n", *esp);
 
-  hex_dump((uintptr_t) *esp, (const char *) *esp, PHYS_BASE - (uintptr_t) *esp, true);
+  hex_dump((uintptr_t) *esp, (const char *) *esp, (uintptr_t) PHYS_BASE - (uintptr_t) *esp, true);
 
   success = true;
 
  done:
+  
+  printf("[Debug] debug F(6)\n");
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
@@ -440,7 +462,8 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
      it then user code that passed a null pointer to system calls
      could quite likely panic the kernel by way of null pointer
      assertions in memcpy(), etc. */
-  if (phdr->p_vaddr < PGSIZE)
+  //if (phdr->p_vaddr < PGSIZE)
+  if (phdr->p_offset < PGSIZE)
     return false;
 
   /* It's okay. */
