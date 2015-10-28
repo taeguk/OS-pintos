@@ -19,6 +19,10 @@ enum
     SYS_TELL,                   /* Report current position in a file. */
     SYS_CLOSE,                  /* Close a file. */
 
+    /* Project 2-1 additional system call */
+    SYS_FIBONACCI,
+    SYS_SUM_OF_FOUR_INTEGERS,
+
     /* Project 3 and optionally project 4. */
     SYS_MMAP,                   /* Map a file into memory. */
     SYS_MUNMAP,                 /* Remove a memory mapping. */
