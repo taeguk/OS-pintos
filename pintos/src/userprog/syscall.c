@@ -149,7 +149,7 @@ syscall_fibonacci (int n)
 static int
 syscall_sum_of_four_integers (int a, int b, int c, int d)
 {
-	return a+b+c+d;  // you must modify this! This is only for compile test.
+  return a+b+c+d;  // you must modify this! This is only for compile test.
 }
 
 static void 
@@ -177,8 +177,15 @@ syscall_wait (pid_t pid)
 static int
 syscall_read (int fd, void *buffer, unsigned size)
 {
+	int i;
 
+	if(fd == 0 && buffer != NULL)
+	{
+		for(i = 0; i < size; ++i)
+			*(char*)(buffer + i) = input_getc();
 
+		return (uint32_t)i;
+	}
 
   return -1;  // you must modify this! This is only for compile test.
 }
@@ -186,5 +193,11 @@ syscall_read (int fd, void *buffer, unsigned size)
 static int
 syscall_write (int fd, void *buffer, unsigned size)
 {
+	if(fd == 1 && buffer != NULL)
+	{
+		putbuf(buffer, size);
+		return size;
+	}
+
   return -1;  // you must modify this! This is only for compile test.
 }
