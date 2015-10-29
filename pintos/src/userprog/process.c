@@ -93,13 +93,61 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid /*UNUSED*/) 
 {
   // must be implemented - taeguk
   int i,j;
   for(i=0; i<30000; ++i)
     for(j=0; j<10000; ++j);
-  return -1;
+
+  /*
+   * child_tid -> invalid ( nothing or not child ) : return -1
+   * child_tid -> child is terminated without exit : return -1
+   * parent is blocking until child is terminated with exit...
+   * if child state is terminated, return child's return address.
+   */
+
+  struct thread *cur, *child = NULL;
+  struct list_elem *e;
+  int exit_code;
+
+  cur = thread_current ();
+
+  for (e = list_begin (&cur->child_list); 
+       e != list_end (&cur->child_list); e = list_next(e)) 
+    {
+      struct thread *c = list_entry (e, struct thread, allelem);
+      if (c->tid == child_tid)
+        {
+          child = c;
+          break;
+        }
+    }
+
+  if (child == NULL)
+      return -1;
+
+  if (child->status == THREAD_DYING)
+    {
+      if (child->normal_exit == true)
+        {
+          exit_code = child->exit_code;
+          sema_up (&child->exit_sema);
+        }
+      else
+        {
+          sema_up (&child->exit_sema);
+          return -1;
+        }
+    }
+  else
+    {
+      sema_down (&child->wait_sema);
+      exit_code = child->exit_code;
+      sema_up (&child->exit_sema);
+    }
+
+  return exit_code;
 }
 
 /* Free the current process's resources. */
@@ -107,6 +155,7 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+  struct list_elem *e;
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
@@ -125,6 +174,22 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  /*
+   * free resources that current process owned.
+   */
+  for (e = list_begin (&cur->child_list); 
+       e != list_end (&cur->child_list); e = list_next(e)) 
+    {
+      struct thread *c = list_entry (e, struct thread, allelem);
+      sema_up (&c->exit_sema);
+    }
+
+  /* 
+   * if parent is blocking for waiting me, wake parent.
+   */
+  sema_up (&cur->wait_sema);
+  sema_down (&cur->exit_sema);
 }
 
 /* Sets up the CPU for running user code in the current

@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -89,6 +90,13 @@ struct thread
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
+
+    /* Added by taeguk */
+    struct list child_list;
+    int exit_code;
+    bool normal_exit;   // true if thread is terminated by exit(), false if thread is terminated by exception.
+    struct semaphore wait_sema;  // held by child(this thread) while thread is alive, unlocked by child when child is terminated.
+    struct semaphore exit_sema;  // held by parent while parent is not waiting child, unlocked by parent when parent's wait() return.
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

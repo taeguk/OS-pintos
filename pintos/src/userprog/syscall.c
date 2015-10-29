@@ -33,7 +33,7 @@ syscall_init (void)
 static bool 
 check_user_pointer (const void *ptr)
 {
-  return (uintptr_t) ptr < (uintptr_t) PHYS_BASE;
+  return is_user_vaddr(ptr);
 }
 
 static void
@@ -43,6 +43,8 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
 
   // will be coded - taeguk
   printf ("[Debug] system_handler() start\n");
+  
+  hex_dump((uintptr_t) f->esp, (const char *) f->esp, (uintptr_t) PHYS_BASE - (uintptr_t) f->esp, true);
 
   syscall_num = * (uint32_t *) f->esp;
 
@@ -56,9 +58,9 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
     case SYS_SUM_OF_FOUR_INTEGERS: // p 2-1
       f->eax = 
         syscall_sum_of_four_integers ( * (int *) SYS_ARG_PTR (f->esp, 0)  ,
-                                * (int *) SYS_ARG_PTR (f->esp, 1) ,
-                                * (int *) SYS_ARG_PTR (f->esp, 3) ,
-                                * (int *) SYS_ARG_PTR (f->esp, 4) );
+                                        * (int *) SYS_ARG_PTR (f->esp, 1) ,
+                                        * (int *) SYS_ARG_PTR (f->esp, 3) ,
+                                        * (int *) SYS_ARG_PTR (f->esp, 4) );
       break;
 
     case SYS_HALT:  // project 2-1
@@ -148,6 +150,10 @@ syscall_halt (void)
 static void
 syscall_exit (int status)
 {
+  struct thread *cur = thread_current ();
+  cur->normal_exit = true;
+  cur->exit_code = status;
+  thread_exit();
 }
 
 static pid_t
