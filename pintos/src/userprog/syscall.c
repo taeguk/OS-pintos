@@ -131,17 +131,17 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
 static int 
 syscall_fibonacci (int n)
 {
-	int a, b, c, i;
-	a = 0; b = c = 1;
+  int a, b, c, i;
+  a = 0; b = c = 1;
 
-	if(n == 1) return 1;
+  if(n == 1) return 1;
 
-	for(i = 1; i < n; ++i)
-	{
-		c = a + b;
-		a = b;
-		b = c;
-	}
+  for(i = 1; i < n; ++i)
+    {
+      c = a + b;
+      a = b;
+      b = c;
+    }
 
   return c;  // you must modify this! This is only for compile test.
 }
@@ -155,37 +155,38 @@ syscall_sum_of_four_integers (int a, int b, int c, int d)
 static void 
 syscall_halt (void)
 {
+  shutdown_power_off();
 }
 
 static void
 syscall_exit (int status)
 {
+
 }
 
 static pid_t
 syscall_exec (const char *file)
 {
-  return 1111;  // you must modify this! This is only for compile test.
+  return process_execute(file);  // you must modify this! This is only for compile test.
 }
 
 static int
 syscall_wait (pid_t pid)
 {
-  return -1;  // you must modify this! This is only for compile test.
+  return process_wait(pid);  // you must modify this! This is only for compile test.
 }
 
 static int
 syscall_read (int fd, void *buffer, unsigned size)
 {
-	int i;
+  int i;
 
-	if(fd == 0 && buffer != NULL)
-	{
-		for(i = 0; i < size; ++i)
-			*(char*)(buffer + i) = input_getc();
-
-		return (uint32_t)i;
-	}
+  if(fd == 0 && buffer != NULL)
+    {
+      for(i = 0; i < size; ++i)
+        *(char*)(buffer + i) = input_getc();
+      return i;
+    }
 
   return -1;  // you must modify this! This is only for compile test.
 }
@@ -193,11 +194,11 @@ syscall_read (int fd, void *buffer, unsigned size)
 static int
 syscall_write (int fd, void *buffer, unsigned size)
 {
-	if(fd == 1 && buffer != NULL)
-	{
-		putbuf(buffer, size);
-		return size;
-	}
+  if(fd == 1 && buffer != NULL)
+    {
+      putbuf(buffer, size);
+      return size;
+    }
 
-  return -1;  // you must modify this! This is only for compile test.
+  return 0;  // you must modify this! This is only for compile test.
 }
