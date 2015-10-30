@@ -9,9 +9,10 @@
 #include "threads/vaddr.h"
 
 #define STACK_BLOCK   4
-#define SYS_ARG_PTR(ESP, IDX) ((uintptr_t) (ESP) + (IDX) * STACK_BLOCK + STACK_BLOCK)
+#define SYS_ARG_PTR(ESP, IDX) ((uintptr_t) (ESP) + (IDX) * STACK_BLOCK)
 
-static bool check_user_pointer (const void *);
+inline static bool chk_user_ptr (const void *);
+inline static bool chk_valid_ptr (const void *);
 static void syscall_handler (struct intr_frame *);
 
 /* syscalls... */
@@ -30,37 +31,65 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-static bool 
-check_user_pointer (const void *ptr)
+inline static bool 
+chk_user_ptr (const void *ptr)
 {
   return is_user_vaddr(ptr);
+}
+
+inline static bool
+chk_valid_ptr (const void *ptr)
+{
+  return chk_user_ptr (ptr);
+}
+
+static int
+get_user (const uint8_t *uaddr)
+{
+  int result;
+  asm ("movl $1f, %0; movzbl %1, %0; 1:"
+       : "=&a" (result) : "m" (*uaddr));
+  return result;
+}
+
+/* Writes BYTE to user address UDST.
+ * UDST must be below PHYS_BASE.
+ * Returns true if successful, false if a segfault occurred. */
+static bool
+put_user (uint8_t *udst, uint8_t byte)
+{
+  int error_code;
+  asm ("movl $1f, %0; movb %b2, %1; 1:"
+       : "=&a" (error_code), "=m" (*udst) : "q" (byte));
+  return error_code != -1;
 }
 
 static void
 syscall_handler (struct intr_frame *f /*UNUSED*/) 
 {
   uint32_t syscall_num;
+  void *arg_top;
 
   // will be coded - taeguk
-  printf ("[Debug] system_handler() start\n");
-  
-  hex_dump((uintptr_t) f->esp, (const char *) f->esp, (uintptr_t) PHYS_BASE - (uintptr_t) f->esp, true);
+  //hex_dump((uintptr_t) f->esp, (const char *) f->esp, (uintptr_t) PHYS_BASE - (uintptr_t) f->esp, true);
 
   syscall_num = * (uint32_t *) f->esp;
 
   switch(syscall_num)
     {
     case SYS_FIBONACCI:           // p 2-1
+      arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 1);
       f->eax = 
-        syscall_fibonacci ( * (int *) SYS_ARG_PTR (f->esp, 0) );
+        syscall_fibonacci ( * (int *) SYS_ARG_PTR (arg_top, 0) );
       break;
 
     case SYS_SUM_OF_FOUR_INTEGERS: // p 2-1
+      arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 6);
       f->eax = 
-        syscall_sum_of_four_integers ( * (int *) SYS_ARG_PTR (f->esp, 0)  ,
-                                        * (int *) SYS_ARG_PTR (f->esp, 1) ,
-                                        * (int *) SYS_ARG_PTR (f->esp, 3) ,
-                                        * (int *) SYS_ARG_PTR (f->esp, 4) );
+        syscall_sum_of_four_integers ( * (int *) SYS_ARG_PTR (arg_top, 0)  ,
+                                        * (int *) SYS_ARG_PTR (arg_top, 1) ,
+                                        * (int *) SYS_ARG_PTR (arg_top, 3) ,
+                                        * (int *) SYS_ARG_PTR (arg_top, 4) );
       break;
 
     case SYS_HALT:  // project 2-1
@@ -68,31 +97,36 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
       break;
 
     case SYS_EXIT:  // p 2-1
-      syscall_exit ( * (int *) SYS_ARG_PTR (f->esp, 0) );
+      arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 1);
+      syscall_exit ( * (int *) SYS_ARG_PTR (arg_top, 0) );
       break;
 
     case SYS_EXEC:  // p 2-1
+      arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 1);
       f->eax = (uint32_t)
-        syscall_exec ( * (char **) SYS_ARG_PTR (f->esp, 0) );
+        syscall_exec ( * (char **) SYS_ARG_PTR (arg_top, 0) );
       break;
 
     case SYS_WAIT:  // p 2-1
+      arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 1);
       f->eax = 
-        syscall_wait ( * (pid_t *) SYS_ARG_PTR (f->esp, 0) );
+        syscall_wait ( * (pid_t *) SYS_ARG_PTR (arg_top, 0) );
       break;
 
     case SYS_READ:  // p 2-1
+      arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 5);
       f->eax = 
-        syscall_read ( * (int *) SYS_ARG_PTR (f->esp, 0) ,
-                        * (void **) SYS_ARG_PTR (f->esp, 1) ,
-                        * (unsigned *) SYS_ARG_PTR (f->esp, 2) );
+        syscall_read ( * (int *) SYS_ARG_PTR (arg_top, 0) ,
+                        * (void **) SYS_ARG_PTR (arg_top, 1) ,
+                        * (unsigned *) SYS_ARG_PTR (arg_top, 2) );
       break;
 
     case SYS_WRITE: // p 2-1
+      arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 5);
       f->eax = 
-        syscall_write ( * (int *) SYS_ARG_PTR (f->esp, 0) ,
-                        * (void **) SYS_ARG_PTR (f->esp, 1) ,
-                        * (unsigned *) SYS_ARG_PTR (f->esp, 2) );
+        syscall_write ( * (int *) SYS_ARG_PTR (arg_top, 0) ,
+                        * (void **) SYS_ARG_PTR (arg_top, 1) ,
+                        * (unsigned *) SYS_ARG_PTR (arg_top, 2) );
       break;
     
 
@@ -114,8 +148,6 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
       break;
     }
   
-  printf ("[Debug] system_handler() end\n");
-
   // call of handler of system call
 
   // save system call's result.
@@ -172,6 +204,9 @@ syscall_exit (int status)
 static pid_t
 syscall_exec (const char *file)
 {
+  if (! chk_valid_ptr (file))
+    return -1;
+
   return process_execute(file);  // you must modify this! This is only for compile test.
 }
 
@@ -186,6 +221,9 @@ syscall_read (int fd, void *buffer, unsigned size)
 {
   int i;
 
+  if (! chk_valid_ptr (buffer))
+    return -1;
+
   if(fd == 0 && buffer != NULL)
     {
       for(i = 0; i < size; ++i)
@@ -199,11 +237,18 @@ syscall_read (int fd, void *buffer, unsigned size)
 static int
 syscall_write (int fd, void *buffer, unsigned size)
 {
+  //printf("[Debug] syscall_write() start\n");
+  //printf("[Debug] fd = %d, buffer = 0x%08p, size = %u\n", fd, buffer, size);
+  if (! chk_valid_ptr (buffer))
+    return -1;
+
   if(fd == 1 && buffer != NULL)
     {
+    //printf("[Debug] syscall_write() haaam.\n");
       putbuf(buffer, size);
       return size;
     }
+  //printf("[Debug] syscall_write() end (must be not called.)\n");
 
   return 0;  // you must modify this! This is only for compile test.
 }

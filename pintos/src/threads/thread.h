@@ -92,6 +92,7 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Added by taeguk */
+    struct thread *parent;
     struct list child_list;
     int exit_code;
     bool normal_exit;   // true if thread is terminated by exit(), false if thread is terminated by exception.

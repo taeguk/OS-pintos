@@ -156,6 +156,14 @@ page_fault (struct intr_frame *f)
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
+
+  /*
+  if (!user)
+    {
+      f->eax = -1;
+      return;
+    }
+*/
   kill (f);
 
   // for project 2-1

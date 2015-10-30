@@ -30,8 +30,9 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  char *fn_copy, *real_fn;
   tid_t tid;
+  int i;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -40,11 +41,18 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  // debug - taeguk
-  printf("[Debug] process_execute()\n");
+  real_fn = palloc_get_page (0);
+  if (real_fn == NULL)
+    return TID_ERROR;
+  for (i = 0; 
+       file_name[i] != '\0' && file_name[i] != ' ' && file_name[i] != '\t'; 
+       ++i)
+    real_fn[i] = file_name[i];
+  real_fn[i] = 0;
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (real_fn, PRI_DEFAULT, start_process, fn_copy);
+  palloc_free_page (real_fn);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -64,8 +72,6 @@ start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  // debug - taeguk but not working hihi
-  printf("[Debug] start_process()\n");
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
@@ -93,13 +99,8 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid /*UNUSED*/) 
+process_wait (tid_t child_tid) 
 {
-  // must be implemented - taeguk
-  int i,j;
-  for(i=0; i<30000; ++i)
-    for(j=0; j<10000; ++j);
-
   /*
    * child_tid -> invalid ( nothing or not child ) : return -1
    * child_tid -> child is terminated without exit : return -1
@@ -110,6 +111,8 @@ process_wait (tid_t child_tid /*UNUSED*/)
   struct thread *cur, *child = NULL;
   struct list_elem *e;
   int exit_code;
+
+  //printf("[Debug] process_wait() start\n");
 
   cur = thread_current ();
 
@@ -125,27 +128,37 @@ process_wait (tid_t child_tid /*UNUSED*/)
     }
 
   if (child == NULL)
+    {
+      //printf("[Debug] process_wait() - cannot find child with tid.\n");
       return -1;
+    }
+  list_remove (e);
 
   if (child->status == THREAD_DYING)
     {
+      //printf("[Debug] process_wait() - child->status = THREAD_DYING\n");
       if (child->normal_exit == true)
         {
+        //printf("[Debug] process_wait() - normal exit\n");
           exit_code = child->exit_code;
           sema_up (&child->exit_sema);
         }
       else
         {
+        //printf("[Debug] process_wait() - exception exit\n");
           sema_up (&child->exit_sema);
           return -1;
         }
     }
   else
     {
+      //printf("[Debug] process_wait() - child->status = THREAD_ALIVE\n");
       sema_down (&child->wait_sema);
       exit_code = child->exit_code;
       sema_up (&child->exit_sema);
     }
+  
+  //printf("[Debug] process_wait() end with exit_code.\n");
 
   return exit_code;
 }
@@ -184,6 +197,8 @@ process_exit (void)
       struct thread *c = list_entry (e, struct thread, allelem);
       sema_up (&c->exit_sema);
     }
+
+  printf ("%s: exit(%d)\n", cur->name, cur->exit_code);
 
   /* 
    * if parent is blocking for waiting me, wake parent.
@@ -306,20 +321,23 @@ load (const char *file_name, void (**eip) (void), void **esp)
   // file_name contains program file name and arguments.
   // file_name is reset to purely program file name.
   
-  printf("[Debug] debug 1\n");
-  
+  /*
   i = strlen(file_name);
   cpy_file_name = (char*) malloc(i + 1);
   if(cpy_file_name == NULL)
       goto done;
+  */
+  cpy_file_name = palloc_get_page (0);
+  if (cpy_file_name == NULL)
+    goto done;
 
   skip_flag = false;
   argc = 0;
-  for(i = 0, j = 0; file_name[i]; ++i)
+  for (i = 0, j = 0; file_name[i]; ++i)
     {
-      if(file_name[i] == ' ' || file_name[i] == '\t')
+      if (file_name[i] == ' ' || file_name[i] == '\t')
         {
-          if(skip_flag)
+          if (skip_flag)
               continue;
           cpy_file_name[j++] = 0;
           ++argc;
@@ -332,7 +350,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
-  if(!skip_flag)
+  if (!skip_flag)
     {
       cpy_file_name[j++] = 0;
       ++argc;
@@ -348,8 +366,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
-  printf("[Debug] debug 2\n");
-
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -362,8 +378,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: error loading executable\n", cpy_file_name);
       goto done; 
     }
-
-  printf("[Debug] debug 3\n");
 
   /* Read program headers. */
   file_ofset = ehdr.e_phoff;
@@ -392,10 +406,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
         case PT_SHLIB:
           goto done;
         case PT_LOAD:
-          printf("[Debug] debug 3-1\n");
           if (validate_segment (&phdr, file)) 
             {
-              printf("[Debug] debug 3-1-1\n");
               bool writable = (phdr.p_flags & PF_W) != 0;
               uint32_t file_page = phdr.p_offset & ~PGMASK;
               uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
@@ -427,8 +439,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
 
-  printf("[Debug] debug 4\n");
-
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
@@ -438,21 +448,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
   
   // To be added constructing esp. - taeguk
   
-  printf("[Debug] debug 5 - argc : %d\n", argc);
-  
   argv_ptr = (char*) *esp - argv_size;
   *esp = (void*) ((uintptr_t) argv_ptr & 0xfffffffc);
   align_size = (uintptr_t) argv_ptr & 0x00000003;
-  for(i = 0; i < align_size; ++i)
+  for (i = 0; i < align_size; ++i)
       * ((char*) *esp + i) = 0;
 
   *esp = (void*) ((void**) *esp - argc - 2);
   argv = * ((char***) *esp) = (char**) ((void**) *esp + 1);
   
-  printf("[Debug] debug 5-1 - *esp = 0x%08p, argv = 0x%08p\n", *esp, argv);
-
   name_ptr = cpy_file_name;
-  for(i = 0; i < argc; ++i)
+  for (i = 0; i < argc; ++i)
     {
       argv[i] = argv_ptr;
       j = 0;
@@ -460,31 +466,24 @@ load (const char *file_name, void (**eip) (void), void **esp)
         {
           argv[i][j] = name_ptr[j];
         } 
-      while(name_ptr[j++]);
+      while (name_ptr[j++]);
       name_ptr = name_ptr+j;
       argv_ptr += j;
     }
-  printf("[Debug] debug 5-2\n");
   argv[argc] = NULL;
-  printf("[Debug] debug 5-3\n");
   * ( (int32_t*) ((void**) *esp - 1) ) = argc;
   * ( (void (**) (void)) ((void**) *esp - 2) ) = NULL;
-  printf("[Debug] debug 5-4\n");
 
   *esp = (void*) ((void**) *esp - 2);
   
-  printf("[Debug] debug 5-5 - *esp = 0x%08p\n", *esp);
-
-  hex_dump((uintptr_t) *esp, (const char *) *esp, (uintptr_t) PHYS_BASE - (uintptr_t) *esp, true);
+  //hex_dump((uintptr_t) *esp, (const char *) *esp, (uintptr_t) PHYS_BASE - (uintptr_t) *esp, true);
 
   success = true;
 
  done:
-  
-  printf("[Debug] debug F(6)\n");
 
-  if(cpy_file_name)
-      free(cpy_file_name);
+  if (cpy_file_name != NULL)
+    palloc_free_page (cpy_file_name);
 
   /* We arrive here whether the load is successful or not. */
   file_close (file);

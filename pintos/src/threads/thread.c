@@ -206,6 +206,18 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
+  //printf("[Debug] thread_create () : %s\n", name);
+
+  /* added by taeguk */
+  // not idle process
+  if(t->tid > 1)
+    {
+      struct thread *cur = thread_current();
+      //printf("[Debug] new thread status1 : %d\n", t->status);
+      list_push_back (&cur->child_list , (struct list_elem *) &t->allelem);
+      //printf("[Debug] new thread status2 : %d\n", t->status);
+    }
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -472,8 +484,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
 
   /* Added by taeguk */
+  //t->parent = thread_current ();
   list_init (&t->child_list);
   t->normal_exit = false;
+  t->exit_code = -1;
   sema_init (&t->wait_sema, 0);
   sema_init (&t->exit_sema, 0);
 }
