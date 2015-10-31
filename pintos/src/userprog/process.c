@@ -52,11 +52,22 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (real_fn, PRI_DEFAULT, start_process, fn_copy);
+
   palloc_free_page (real_fn);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-  else if (tid == TID_LOAD_FAIL)
-    tid = TID_ERROR;
+  else
+    {
+      struct thread *cur = thread_current ();
+      struct list_elem *e = list_pop_back (&cur->child_list);
+      struct thread *child = list_entry (e, struct thread, child_elem);
+
+      sema_down (&child->wait_sema);
+      if (!child->load_success)
+        tid = TID_ERROR;
+      else
+        list_push_back (&cur->child_list, e);
+    }
 
   return tid;
 }
@@ -70,8 +81,6 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-  
-  //printf ("[Debug] start_process()\n");
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -81,10 +90,8 @@ start_process (void *file_name_)
   success = load (file_name, &if_.eip, &if_.esp);
 
   cur = thread_current ();
-      cur->load_success = success;
-      //printf ("[Debug] before sema_up ()\n");
-      sema_up (&cur->wait_sema);
-      //printf ("[Debug] after sema_up ()\n");
+  cur->load_success = success;
+  sema_up (&cur->wait_sema);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -124,8 +131,6 @@ process_wait (tid_t child_tid)
   struct list_elem *e;
   int exit_code;
 
-  //printf("[Debug] process_wait() start\n");
-
   cur = thread_current ();
 
   for (e = list_begin (&cur->child_list); 
@@ -140,38 +145,30 @@ process_wait (tid_t child_tid)
     }
 
   if (child == NULL)
-    {
-      //printf("[Debug] process_wait() - cannot find child with tid.\n");
       return -1;
-    }
+
   list_remove (e);
 
   if (child->status == THREAD_DYING)
     {
-      //printf("[Debug] process_wait() - child->status = THREAD_DYING\n");
       if (child->normal_exit == true)
         {
-          //printf("[Debug] process_wait() - normal exit\n");
           exit_code = child->exit_code;
           sema_up (&child->exit_sema);
         }
       else
         {
-        //printf("[Debug] process_wait() - exception exit\n");
           sema_up (&child->exit_sema);
           return -1;
         }
     }
   else
     {
-      //printf("[Debug] process_wait() - child->status = THREAD_ALIVE\n");
       sema_down (&child->wait_sema);
       exit_code = child->exit_code;
       sema_up (&child->exit_sema);
     }
   
-  //printf("[Debug] process_wait() end with exit_code.\n");
-
   return exit_code;
 }
 
@@ -303,6 +300,89 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
+static bool construct_stack (const char *file_name, void **esp);
+
+static bool construct_stack (const char *file_name, void **esp)
+{
+  bool success = false;
+  char *cpy_file_name = NULL;
+  bool skip_flag;
+  int argv_size, align_size;
+  char *argv_ptr, *name_ptr;
+  int argc; char **argv;
+  int i, j;
+ 
+  cpy_file_name = palloc_get_page (0);
+  if (cpy_file_name == NULL)
+    goto done;
+
+  skip_flag = false;
+  argc = 0;
+  for (i = 0, j = 0; file_name[i]; ++i)
+    {
+      if (file_name[i] == ' ' || file_name[i] == '\t')
+        {
+          if (skip_flag)
+              continue;
+          cpy_file_name[j++] = 0;
+          ++argc;
+          skip_flag = true;
+        }
+      else
+        {
+          cpy_file_name[j++] = file_name[i];
+          skip_flag = false;
+        }
+    }
+
+  if (!skip_flag)
+    {
+      cpy_file_name[j++] = 0;
+      ++argc;
+    }
+
+  argv_size = j;
+
+ 
+  argv_ptr = (char*) *esp - argv_size;
+  *esp = (void*) ((uintptr_t) argv_ptr & 0xfffffffc);
+  align_size = (uintptr_t) argv_ptr & 0x00000003;
+  for (i = 0; i < align_size; ++i)
+      * ((char*) *esp + i) = 0;
+
+  *esp = (void*) ((void**) *esp - argc - 2);
+  argv = * ((char***) *esp) = (char**) ((void**) *esp + 1);
+  
+  name_ptr = cpy_file_name;
+  for (i = 0; i < argc; ++i)
+    {
+      argv[i] = argv_ptr;
+      j = 0;
+      do
+        {
+          argv[i][j] = name_ptr[j];
+        } 
+      while (name_ptr[j++]);
+      name_ptr = name_ptr+j;
+      argv_ptr += j;
+    }
+  argv[argc] = NULL;
+  * ( (int32_t*) ((void**) *esp - 1) ) = argc;
+  * ( (void (**) (void)) ((void**) *esp - 2) ) = NULL;
+
+  *esp = (void*) ((void**) *esp - 2);
+  
+  //hex_dump((uintptr_t) *esp, (const char *) *esp, (uintptr_t) PHYS_BASE - (uintptr_t) *esp, true);
+
+  success = true;
+
+done:
+
+  if (cpy_file_name != NULL)
+    palloc_free_page (cpy_file_name);
+
+  return success;
+}
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -316,12 +396,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct file *file = NULL;
   off_t file_ofset;
   bool success = false;
-  int i, j;
-  char *cpy_file_name = NULL;
-  bool skip_flag;
-  int argv_size, align_size;
-  char *argv_ptr, *name_ptr;
-  int argc; char **argv;
+  int i;
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -416,86 +491,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
-  
-  // To be added constructing esp. - taeguk
-   // To be added parsing file_name - taeguk
-  // file_name contains program file name and arguments.
-  // file_name is reset to purely program file name.
-  
-  /*
-  i = strlen(file_name);
-  cpy_file_name = (char*) malloc(i + 1);
-  if(cpy_file_name == NULL)
-      goto done;
-  */
-  cpy_file_name = palloc_get_page (0);
-  if (cpy_file_name == NULL)
+
+  if (!construct_stack (file_name, esp))
     goto done;
 
-  skip_flag = false;
-  argc = 0;
-  for (i = 0, j = 0; file_name[i]; ++i)
-    {
-      if (file_name[i] == ' ' || file_name[i] == '\t')
-        {
-          if (skip_flag)
-              continue;
-          cpy_file_name[j++] = 0;
-          ++argc;
-          skip_flag = true;
-        }
-      else
-        {
-          cpy_file_name[j++] = file_name[i];
-          skip_flag = false;
-        }
-    }
-
-  if (!skip_flag)
-    {
-      cpy_file_name[j++] = 0;
-      ++argc;
-    }
-
-  argv_size = j;
-
- 
-  argv_ptr = (char*) *esp - argv_size;
-  *esp = (void*) ((uintptr_t) argv_ptr & 0xfffffffc);
-  align_size = (uintptr_t) argv_ptr & 0x00000003;
-  for (i = 0; i < align_size; ++i)
-      * ((char*) *esp + i) = 0;
-
-  *esp = (void*) ((void**) *esp - argc - 2);
-  argv = * ((char***) *esp) = (char**) ((void**) *esp + 1);
-  
-  name_ptr = cpy_file_name;
-  for (i = 0; i < argc; ++i)
-    {
-      argv[i] = argv_ptr;
-      j = 0;
-      do
-        {
-          argv[i][j] = name_ptr[j];
-        } 
-      while (name_ptr[j++]);
-      name_ptr = name_ptr+j;
-      argv_ptr += j;
-    }
-  argv[argc] = NULL;
-  * ( (int32_t*) ((void**) *esp - 1) ) = argc;
-  * ( (void (**) (void)) ((void**) *esp - 2) ) = NULL;
-
-  *esp = (void*) ((void**) *esp - 2);
-  
-  //hex_dump((uintptr_t) *esp, (const char *) *esp, (uintptr_t) PHYS_BASE - (uintptr_t) *esp, true);
-
-  success = true;
+   success = true;
 
  done:
-
-  if (cpy_file_name != NULL)
-    palloc_free_page (cpy_file_name);
 
   /* We arrive here whether the load is successful or not. */
   file_close (file);

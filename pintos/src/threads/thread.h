@@ -19,7 +19,6 @@ enum thread_status
    You can redefine this to whatever type you like. */
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
-#define TID_LOAD_FAIL ((tid_t) -2)      /* Load Fail for tid_t */
 
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
@@ -92,15 +91,17 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
-    /* Added by taeguk */
-    //struct thread *parent;
+#ifdef USERPROG
+    /* Using for process. Added by taeguk. */
     bool load_success;
-    struct list child_list;
-    struct list_elem child_elem;
+    struct list child_list;       // list for managing childs.
+    struct list_elem child_elem;  // using for parent's child_list.
     int exit_code;
-    bool normal_exit;   // true if thread is terminated by exit(), false if thread is terminated by exception.
-    struct semaphore wait_sema;  // held by child(this thread) while thread is alive, unlocked by child when child is terminated.
-    struct semaphore exit_sema;  // held by parent while parent is not waiting child, unlocked by parent when parent's wait() return.
+    bool normal_exit;             // true if thread is terminated by exit(), false if thread is terminated by exception.
+    struct semaphore wait_sema;   // held by child(this thread) while thread is alive, unlocked by child when child is terminated.
+                                  // Also using for load process synchronization.
+    struct semaphore exit_sema;   // held by parent while parent is not waiting child, unlocked by parent when parent get child's exit code.
+#endif
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

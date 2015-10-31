@@ -8,6 +8,7 @@
 #include "lib/user/syscall.h"
 #include "threads/vaddr.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include "userprog/process.h"
 
 #define STACK_BLOCK   4
@@ -29,7 +30,7 @@ static void syscall_write (void *arg_top);
 
 /* added by taeguk */
 static void (*syscall_table[SYS_MAX_NUM]) (void*);
-static int esp_fix_val[SYS_MAX_NUM];
+static int esp_fix_val[SYS_MAX_NUM];      // need to mystery problem, shift of syscall arguments...
 static int arg_size[SYS_MAX_NUM];
 
 static int *sys_ret;
@@ -107,19 +108,16 @@ syscall_handler (struct intr_frame *f)
 
   syscall_num = * (uint32_t *) f->esp;
 
-  if (syscall_num < 0 || syscall_num >= SYS_MAX_NUM ||
-      syscall_table[syscall_num] == NULL)
-    {
-      thread_exit ();
-    }
+  if (syscall_num >= SYS_MAX_NUM || syscall_table[syscall_num] == NULL)
+    thread_exit ();
   else
     {
       void *arg_top;
       
       sys_ret = (int*) &f->eax;
-      arg_top = (uintptr_t) f->esp + STACK_BLOCK + esp_fix_val[syscall_num];
+      arg_top = (void*) ((uintptr_t) f->esp + STACK_BLOCK + esp_fix_val[syscall_num]);
 
-      if (! is_user_vaddr((uintptr_t) arg_top + arg_size[syscall_num] - STACK_BLOCK))
+      if (! is_user_vaddr((void*) ((uintptr_t) arg_top + arg_size[syscall_num] - STACK_BLOCK)))
         thread_exit ();
 
       syscall_table[syscall_num](arg_top);

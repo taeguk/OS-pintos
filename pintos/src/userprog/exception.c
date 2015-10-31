@@ -150,10 +150,7 @@ page_fault (struct intr_frame *f)
   
   if (!user)
     {
-      //printf ("[Debug1] eip : 0x%08x, eax : 0x%08x\n", f->eip, f->eax);
-      //f->eip = f->eax;
-      //f->eax = -1;
-      //printf ("[Debug2] eip : 0x%08x, eax : 0x%08x\n", f->eip, f->eax);
+      // problems...
       thread_exit ();
       return;
     }
@@ -168,11 +165,4 @@ page_fault (struct intr_frame *f)
           user ? "user" : "kernel");
 
   kill (f);
-
-  // for project 2-1
-  // maybe, ?
-  // skip kill() call if not user mode, but kernel mode
-  // eip <- its former value
-  // eax <- 0xffffffff (-1)
 }
-// page_fault is must be modified.. - taeguk

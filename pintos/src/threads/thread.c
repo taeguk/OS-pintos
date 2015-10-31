@@ -183,8 +183,6 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  
-  //printf ("[Debug] thread_create() - tid : %d, name : %s\n", t->tid, t->name);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -208,36 +206,13 @@ thread_create (const char *name, int priority,
 
   intr_set_level (old_level);
 
-  //printf("[Debug] thread_create () : %s\n", name);
-
-  /* added by taeguk */
-  // not idle process
-  //if (idle_thread != NULL)
-  if (is_thread (running_thread ()))
-    {
-      struct thread *cur = thread_current();
-      //printf("[Debug] new thread status1 : %d\n", t->status);
-      list_push_back (&cur->child_list , (struct list_elem *) &t->child_elem);
-      //printf("[Debug] new thread status2 : %d\n", t->status);
-    }
+#ifdef USERPROG
+  list_push_back (&thread_current()->child_list, (struct list_elem *) &t->child_elem);
+#endif
 
   /* Add to run queue. */
   thread_unblock (t);
 
-  /* For process_execute ()... 
-   *  This code is here because of performance...
-   */
-  // not idle
-  if (function != idle)
-  //if (is_thread (running_thread ()))
-    {
-      //printf ("[Debug] tid : %d, name : %s\n", t->tid, t->name);
-      //printf ("[Debug] before sema_down ()\n");
-      sema_down (&t->wait_sema);
-      //printf ("[Debug] after sema_down ()\n");
-      if (!t->load_success)
-        tid = TID_LOAD_FAIL;
-    }
   return tid;
 }
 
@@ -499,14 +474,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
-
-  /* Added by taeguk */
-  //t->parent = thread_current ();
+ 
+#ifdef USERPROG
+  /* For process. Added by taeguk */
   list_init (&t->child_list);
   t->normal_exit = false;
   t->exit_code = -1;
-  sema_init (&t->wait_sema, 0);
   sema_init (&t->exit_sema, 0);
+  sema_init (&t->wait_sema, 0);
+#endif
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
