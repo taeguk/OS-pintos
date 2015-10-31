@@ -43,6 +43,19 @@ chk_valid_ptr (const void *ptr)
   return chk_user_ptr (ptr);
 }
 
+inline static bool
+chk_valid_sp (const void *sp_top, int arg_cnt)
+{
+  ASSERT (arg_cnt > 0);
+  return chk_user_ptr ( SYS_ARG_PTR (sp_top, arg_cnt-1) );
+}
+
+inline static void
+handle_invalid_sp (void)
+{
+  thread_exit ();
+}
+
 static int
 get_user (const uint8_t *uaddr)
 {
@@ -79,17 +92,19 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
     {
     case SYS_FIBONACCI:           // p 2-1
       arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 1);
+      if (!chk_valid_sp (arg_top, 1)) handle_invalid_sp ();
       f->eax = 
         syscall_fibonacci ( * (int *) SYS_ARG_PTR (arg_top, 0) );
       break;
 
     case SYS_SUM_OF_FOUR_INTEGERS: // p 2-1
       arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 6);
+      if (!chk_valid_sp (arg_top, 4)) handle_invalid_sp ();
       f->eax = 
         syscall_sum_of_four_integers ( * (int *) SYS_ARG_PTR (arg_top, 0)  ,
                                         * (int *) SYS_ARG_PTR (arg_top, 1) ,
-                                        * (int *) SYS_ARG_PTR (arg_top, 3) ,
-                                        * (int *) SYS_ARG_PTR (arg_top, 4) );
+                                        * (int *) SYS_ARG_PTR (arg_top, 2) ,
+                                        * (int *) SYS_ARG_PTR (arg_top, 3) );
       break;
 
     case SYS_HALT:  // project 2-1
@@ -98,23 +113,27 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
 
     case SYS_EXIT:  // p 2-1
       arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 1);
+      if (!chk_valid_sp (arg_top, 1)) handle_invalid_sp ();
       syscall_exit ( * (int *) SYS_ARG_PTR (arg_top, 0) );
       break;
 
     case SYS_EXEC:  // p 2-1
       arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 1);
+      if (!chk_valid_sp (arg_top, 1)) handle_invalid_sp ();
       f->eax = (uint32_t)
         syscall_exec ( * (char **) SYS_ARG_PTR (arg_top, 0) );
       break;
 
     case SYS_WAIT:  // p 2-1
       arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 1);
+      if (!chk_valid_sp (arg_top, 1)) handle_invalid_sp ();
       f->eax = 
         syscall_wait ( * (pid_t *) SYS_ARG_PTR (arg_top, 0) );
       break;
 
     case SYS_READ:  // p 2-1
       arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 5);
+      if (!chk_valid_sp (arg_top, 3)) handle_invalid_sp ();
       f->eax = 
         syscall_read ( * (int *) SYS_ARG_PTR (arg_top, 0) ,
                         * (void **) SYS_ARG_PTR (arg_top, 1) ,
@@ -123,6 +142,7 @@ syscall_handler (struct intr_frame *f /*UNUSED*/)
 
     case SYS_WRITE: // p 2-1
       arg_top = (void *) ((uintptr_t) f->esp + STACK_BLOCK * 5);
+      if (!chk_valid_sp (arg_top, 3)) handle_invalid_sp ();
       f->eax = 
         syscall_write ( * (int *) SYS_ARG_PTR (arg_top, 0) ,
                         * (void **) SYS_ARG_PTR (arg_top, 1) ,
@@ -207,6 +227,7 @@ syscall_exec (const char *file)
   if (! chk_valid_ptr (file))
     return -1;
 
+  // the method to check loading is success must be added.
   return process_execute(file);  // you must modify this! This is only for compile test.
 }
 
@@ -219,6 +240,7 @@ syscall_wait (pid_t pid)
 static int
 syscall_read (int fd, void *buffer, unsigned size)
 {
+  // must be modified...
   int i;
 
   if (! chk_valid_ptr (buffer))

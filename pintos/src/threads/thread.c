@@ -174,7 +174,7 @@ thread_create (const char *name, int priority,
   enum intr_level old_level;
 
   ASSERT (function != NULL);
-
+      
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
@@ -183,6 +183,8 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  
+  //printf ("[Debug] thread_create() - tid : %d, name : %s\n", t->tid, t->name);
 
   /* Prepare thread for first run by initializing its stack.
      Do this atomically so intermediate values for the 'stack' 
@@ -210,17 +212,32 @@ thread_create (const char *name, int priority,
 
   /* added by taeguk */
   // not idle process
-  if(t->tid > 1)
+  //if (idle_thread != NULL)
+  if (is_thread (running_thread ()))
     {
       struct thread *cur = thread_current();
       //printf("[Debug] new thread status1 : %d\n", t->status);
-      list_push_back (&cur->child_list , (struct list_elem *) &t->allelem);
+      list_push_back (&cur->child_list , (struct list_elem *) &t->child_elem);
       //printf("[Debug] new thread status2 : %d\n", t->status);
     }
 
   /* Add to run queue. */
   thread_unblock (t);
 
+  /* For process_execute ()... 
+   *  This code is here because of performance...
+   */
+  // not idle
+  if (function != idle)
+  //if (is_thread (running_thread ()))
+    {
+      //printf ("[Debug] tid : %d, name : %s\n", t->tid, t->name);
+      //printf ("[Debug] before sema_down ()\n");
+      sema_down (&t->wait_sema);
+      //printf ("[Debug] after sema_down ()\n");
+      if (!t->load_success)
+        tid = TID_LOAD_FAIL;
+    }
   return tid;
 }
 

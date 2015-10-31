@@ -147,6 +147,16 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
+  
+  if (!user)
+    {
+      //printf ("[Debug1] eip : 0x%08x, eax : 0x%08x\n", f->eip, f->eax);
+      //f->eip = f->eax;
+      //f->eax = -1;
+      //printf ("[Debug2] eip : 0x%08x, eax : 0x%08x\n", f->eip, f->eax);
+      thread_exit ();
+      return;
+    }
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
@@ -157,13 +167,6 @@ page_fault (struct intr_frame *f)
           write ? "writing" : "reading",
           user ? "user" : "kernel");
 
-  /*
-  if (!user)
-    {
-      f->eax = -1;
-      return;
-    }
-*/
   kill (f);
 
   // for project 2-1

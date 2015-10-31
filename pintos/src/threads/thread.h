@@ -19,6 +19,7 @@ enum thread_status
    You can redefine this to whatever type you like. */
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
+#define TID_LOAD_FAIL ((tid_t) -2)      /* Load Fail for tid_t */
 
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
@@ -92,8 +93,10 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Added by taeguk */
-    struct thread *parent;
+    //struct thread *parent;
+    bool load_success;
     struct list child_list;
+    struct list_elem child_elem;
     int exit_code;
     bool normal_exit;   // true if thread is terminated by exit(), false if thread is terminated by exception.
     struct semaphore wait_sema;  // held by child(this thread) while thread is alive, unlocked by child when child is terminated.

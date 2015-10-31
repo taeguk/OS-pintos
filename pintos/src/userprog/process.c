@@ -55,6 +55,9 @@ process_execute (const char *file_name)
   palloc_free_page (real_fn);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  else if (tid == TID_LOAD_FAIL)
+    tid = TID_ERROR;
+
   return tid;
 }
 
@@ -63,9 +66,12 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
+  struct thread *cur;
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  
+  //printf ("[Debug] start_process()\n");
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -73,6 +79,12 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+
+  cur = thread_current ();
+      cur->load_success = success;
+      //printf ("[Debug] before sema_up ()\n");
+      sema_up (&cur->wait_sema);
+      //printf ("[Debug] after sema_up ()\n");
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -119,7 +131,7 @@ process_wait (tid_t child_tid)
   for (e = list_begin (&cur->child_list); 
        e != list_end (&cur->child_list); e = list_next(e)) 
     {
-      struct thread *c = list_entry (e, struct thread, allelem);
+      struct thread *c = list_entry (e, struct thread, child_elem);
       if (c->tid == child_tid)
         {
           child = c;
@@ -139,7 +151,7 @@ process_wait (tid_t child_tid)
       //printf("[Debug] process_wait() - child->status = THREAD_DYING\n");
       if (child->normal_exit == true)
         {
-        //printf("[Debug] process_wait() - normal exit\n");
+          //printf("[Debug] process_wait() - normal exit\n");
           exit_code = child->exit_code;
           sema_up (&child->exit_sema);
         }
@@ -194,7 +206,7 @@ process_exit (void)
   for (e = list_begin (&cur->child_list); 
        e != list_end (&cur->child_list); e = list_next(e)) 
     {
-      struct thread *c = list_entry (e, struct thread, allelem);
+      struct thread *c = list_entry (e, struct thread, child_elem);
       sema_up (&c->exit_sema);
     }
 
@@ -317,52 +329,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  // To be added parsing file_name - taeguk
-  // file_name contains program file name and arguments.
-  // file_name is reset to purely program file name.
-  
-  /*
-  i = strlen(file_name);
-  cpy_file_name = (char*) malloc(i + 1);
-  if(cpy_file_name == NULL)
-      goto done;
-  */
-  cpy_file_name = palloc_get_page (0);
-  if (cpy_file_name == NULL)
-    goto done;
-
-  skip_flag = false;
-  argc = 0;
-  for (i = 0, j = 0; file_name[i]; ++i)
-    {
-      if (file_name[i] == ' ' || file_name[i] == '\t')
-        {
-          if (skip_flag)
-              continue;
-          cpy_file_name[j++] = 0;
-          ++argc;
-          skip_flag = true;
-        }
-      else
-        {
-          cpy_file_name[j++] = file_name[i];
-          skip_flag = false;
-        }
-    }
-
-  if (!skip_flag)
-    {
-      cpy_file_name[j++] = 0;
-      ++argc;
-    }
-
-  argv_size = j;
-
   /* Open executable file. */
-  file = filesys_open (cpy_file_name);
+  file = filesys_open (t->name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", cpy_file_name);
+      printf ("load: %s: open failed\n", t->name);
       goto done; 
     }
 
@@ -375,7 +346,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", cpy_file_name);
+      printf ("load: %s: error loading executable\n", t->name);
       goto done; 
     }
 
@@ -447,7 +418,48 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
   
   // To be added constructing esp. - taeguk
+   // To be added parsing file_name - taeguk
+  // file_name contains program file name and arguments.
+  // file_name is reset to purely program file name.
   
+  /*
+  i = strlen(file_name);
+  cpy_file_name = (char*) malloc(i + 1);
+  if(cpy_file_name == NULL)
+      goto done;
+  */
+  cpy_file_name = palloc_get_page (0);
+  if (cpy_file_name == NULL)
+    goto done;
+
+  skip_flag = false;
+  argc = 0;
+  for (i = 0, j = 0; file_name[i]; ++i)
+    {
+      if (file_name[i] == ' ' || file_name[i] == '\t')
+        {
+          if (skip_flag)
+              continue;
+          cpy_file_name[j++] = 0;
+          ++argc;
+          skip_flag = true;
+        }
+      else
+        {
+          cpy_file_name[j++] = file_name[i];
+          skip_flag = false;
+        }
+    }
+
+  if (!skip_flag)
+    {
+      cpy_file_name[j++] = 0;
+      ++argc;
+    }
+
+  argv_size = j;
+
+ 
   argv_ptr = (char*) *esp - argv_size;
   *esp = (void*) ((uintptr_t) argv_ptr & 0xfffffffc);
   align_size = (uintptr_t) argv_ptr & 0x00000003;
