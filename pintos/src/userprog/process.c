@@ -18,6 +18,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#include "threads/malloc.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -28,8 +30,9 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 tid_t
 process_execute (const char *file_name) 
 {
-  char *fn_copy;
+  char *fn_copy, *real_fn;
   tid_t tid;
+  int i;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -38,10 +41,34 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  real_fn = palloc_get_page (0);
+  if (real_fn == NULL)
+    return TID_ERROR;
+  for (i = 0; 
+       file_name[i] != '\0' && file_name[i] != ' ' && file_name[i] != '\t'; 
+       ++i)
+    real_fn[i] = file_name[i];
+  real_fn[i] = 0;
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (real_fn, PRI_DEFAULT, start_process, fn_copy);
+
+  palloc_free_page (real_fn);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  else
+    {
+      struct thread *cur = thread_current ();
+      struct list_elem *e = list_pop_back (&cur->child_list);
+      struct thread *child = list_entry (e, struct thread, child_elem);
+
+      sema_down (&child->wait_sema);
+      if (!child->load_success)
+        tid = TID_ERROR;
+      else
+        list_push_back (&cur->child_list, e);
+    }
+
   return tid;
 }
 
@@ -50,6 +77,7 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
+  struct thread *cur;
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
@@ -60,6 +88,10 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+
+  cur = thread_current ();
+  cur->load_success = success;
+  sema_up (&cur->wait_sema);
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -86,9 +118,58 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
-  return -1;
+  /*
+   * child_tid -> invalid ( nothing or not child ) : return -1
+   * child_tid -> child is terminated without exit : return -1
+   * parent is blocking until child is terminated with exit...
+   * if child state is terminated, return child's return address.
+   */
+
+  struct thread *cur, *child = NULL;
+  struct list_elem *e;
+  int exit_code;
+
+  cur = thread_current ();
+
+  for (e = list_begin (&cur->child_list); 
+       e != list_end (&cur->child_list); e = list_next(e)) 
+    {
+      struct thread *c = list_entry (e, struct thread, child_elem);
+      if (c->tid == child_tid)
+        {
+          child = c;
+          break;
+        }
+    }
+
+  if (child == NULL)
+      return -1;
+
+  list_remove (e);
+
+  if (child->status == THREAD_DYING)
+    {
+      if (child->normal_exit == true)
+        {
+          exit_code = child->exit_code;
+          sema_up (&child->exit_sema);
+        }
+      else
+        {
+          sema_up (&child->exit_sema);
+          return -1;
+        }
+    }
+  else
+    {
+      sema_down (&child->wait_sema);
+      exit_code = child->exit_code;
+      sema_up (&child->exit_sema);
+    }
+  
+  return exit_code;
 }
 
 /* Free the current process's resources. */
@@ -96,6 +177,7 @@ void
 process_exit (void)
 {
   struct thread *cur = thread_current ();
+  struct list_elem *e;
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
@@ -114,6 +196,24 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+  /*
+   * free resources that current process owned.
+   */
+  for (e = list_begin (&cur->child_list); 
+       e != list_end (&cur->child_list); e = list_next(e)) 
+    {
+      struct thread *c = list_entry (e, struct thread, child_elem);
+      sema_up (&c->exit_sema);
+    }
+
+  printf ("%s: exit(%d)\n", cur->name, cur->exit_code);
+
+  /* 
+   * if parent is blocking for waiting me, wake parent.
+   */
+  sema_up (&cur->wait_sema);
+  sema_down (&cur->exit_sema);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -200,6 +300,89 @@ static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
                           bool writable);
+static bool construct_stack (const char *file_name, void **esp);
+
+static bool construct_stack (const char *file_name, void **esp)
+{
+  bool success = false;
+  char *cpy_file_name = NULL;
+  bool skip_flag;
+  int argv_size, align_size;
+  char *argv_ptr, *name_ptr;
+  int argc; char **argv;
+  int i, j;
+ 
+  cpy_file_name = palloc_get_page (0);
+  if (cpy_file_name == NULL)
+    goto done;
+
+  skip_flag = false;
+  argc = 0;
+  for (i = 0, j = 0; file_name[i]; ++i)
+    {
+      if (file_name[i] == ' ' || file_name[i] == '\t')
+        {
+          if (skip_flag)
+              continue;
+          cpy_file_name[j++] = 0;
+          ++argc;
+          skip_flag = true;
+        }
+      else
+        {
+          cpy_file_name[j++] = file_name[i];
+          skip_flag = false;
+        }
+    }
+
+  if (!skip_flag)
+    {
+      cpy_file_name[j++] = 0;
+      ++argc;
+    }
+
+  argv_size = j;
+
+ 
+  argv_ptr = (char*) *esp - argv_size;
+  *esp = (void*) ((uintptr_t) argv_ptr & 0xfffffffc);
+  align_size = (uintptr_t) argv_ptr & 0x00000003;
+  for (i = 0; i < align_size; ++i)
+      * ((char*) *esp + i) = 0;
+
+  *esp = (void*) ((void**) *esp - argc - 2);
+  argv = * ((char***) *esp) = (char**) ((void**) *esp + 1);
+  
+  name_ptr = cpy_file_name;
+  for (i = 0; i < argc; ++i)
+    {
+      argv[i] = argv_ptr;
+      j = 0;
+      do
+        {
+          argv[i][j] = name_ptr[j];
+        } 
+      while (name_ptr[j++]);
+      name_ptr = name_ptr+j;
+      argv_ptr += j;
+    }
+  argv[argc] = NULL;
+  * ( (int32_t*) ((void**) *esp - 1) ) = argc;
+  * ( (void (**) (void)) ((void**) *esp - 2) ) = NULL;
+
+  *esp = (void*) ((void**) *esp - 2);
+  
+  //hex_dump((uintptr_t) *esp, (const char *) *esp, (uintptr_t) PHYS_BASE - (uintptr_t) *esp, true);
+
+  success = true;
+
+done:
+
+  if (cpy_file_name != NULL)
+    palloc_free_page (cpy_file_name);
+
+  return success;
+}
 
 /* Loads an ELF executable from FILE_NAME into the current thread.
    Stores the executable's entry point into *EIP
@@ -222,10 +405,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (t->name);
   if (file == NULL) 
     {
-      printf ("load: %s: open failed\n", file_name);
+      printf ("load: %s: open failed\n", t->name);
       goto done; 
     }
 
@@ -238,7 +421,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
       || ehdr.e_phnum > 1024) 
     {
-      printf ("load: %s: error loading executable\n", file_name);
+      printf ("load: %s: error loading executable\n", t->name);
       goto done; 
     }
 
@@ -301,6 +484,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
+
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
@@ -308,9 +492,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
-  success = true;
+  if (!construct_stack (file_name, esp))
+    goto done;
+
+   success = true;
 
  done:
+
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
@@ -358,7 +546,8 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
      it then user code that passed a null pointer to system calls
      could quite likely panic the kernel by way of null pointer
      assertions in memcpy(), etc. */
-  if (phdr->p_vaddr < PGSIZE)
+  //if (phdr->p_vaddr < PGSIZE)
+  if (phdr->p_offset < PGSIZE)
     return false;
 
   /* It's okay. */

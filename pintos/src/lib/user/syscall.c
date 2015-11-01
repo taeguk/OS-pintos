@@ -61,6 +61,37 @@
           retval;                                               \
         })
 
+/* Invokes syscall NUMBER, passing arguments ARG0, ARG1, ARG2, and
+   ARG3, and returns the return value as an `int'. */
+#define syscall4(NUMBER, ARG0, ARG1, ARG2, ARG3)                      \
+        ({                                                      \
+          int retval;                                           \
+          asm volatile                                          \
+            ("pushl %[arg3]; "                                  \
+             "pushl %[arg2]; pushl %[arg1]; pushl %[arg0]; "    \
+             "pushl %[number]; int $0x30; addl $20, %%esp"      \
+               : "=a" (retval)                                  \
+               : [number] "i" (NUMBER),                         \
+                 [arg0] "g" (ARG0),                             \
+                 [arg1] "g" (ARG1),                             \
+                 [arg2] "g" (ARG2),                             \
+                 [arg3] "g" (ARG3)                              \
+               : "memory");                                     \
+          retval;                                               \
+        })
+
+int 
+fibonacci (int n)
+{
+  return syscall1 (SYS_FIBONACCI, n);
+}
+
+int
+sum_of_four_integers (int a, int b, int c, int d)
+{
+  return syscall4 (SYS_SUM_OF_FOUR_INTEGERS, a, b, c, d);
+}
+
 void
 halt (void) 
 {

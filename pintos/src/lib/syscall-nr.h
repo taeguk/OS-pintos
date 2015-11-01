@@ -19,6 +19,10 @@ enum
     SYS_TELL,                   /* Report current position in a file. */
     SYS_CLOSE,                  /* Close a file. */
 
+    /* Project 2-1 additional system call */
+    SYS_FIBONACCI,
+    SYS_SUM_OF_FOUR_INTEGERS,
+
     /* Project 3 and optionally project 4. */
     SYS_MMAP,                   /* Map a file into memory. */
     SYS_MUNMAP,                 /* Remove a memory mapping. */
@@ -28,7 +32,10 @@ enum
     SYS_MKDIR,                  /* Create a directory. */
     SYS_READDIR,                /* Reads a directory entry. */
     SYS_ISDIR,                  /* Tests if a fd represents a directory. */
-    SYS_INUMBER                 /* Returns the inode number for a fd. */
+    SYS_INUMBER,                /* Returns the inode number for a fd. */
+
+    /* Never used by users. Added by taeguk */
+    SYS_MAX_NUM                 /* the number of system calls. not real syscall */
   };
 
 #endif /* lib/syscall-nr.h */

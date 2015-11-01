@@ -174,7 +174,7 @@ thread_create (const char *name, int priority,
   enum intr_level old_level;
 
   ASSERT (function != NULL);
-
+      
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
@@ -205,6 +205,10 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   intr_set_level (old_level);
+
+#ifdef USERPROG
+  list_push_back (&thread_current()->child_list, (struct list_elem *) &t->child_elem);
+#endif
 
   /* Add to run queue. */
   thread_unblock (t);
@@ -470,6 +474,15 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
+ 
+#ifdef USERPROG
+  /* For process. Added by taeguk */
+  list_init (&t->child_list);
+  t->normal_exit = false;
+  t->exit_code = -1;
+  sema_init (&t->exit_sema, 0);
+  sema_init (&t->wait_sema, 0);
+#endif
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
