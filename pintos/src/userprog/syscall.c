@@ -134,8 +134,8 @@ syscall_fibonacci (void *arg_top)
 
   a = 0; b = c = 1;
 
-  if(n == 1) 
-    SYS_RETURN (1);
+  if(n == 0) 
+    SYS_RETURN (0);
 
   for(i = 1; i < n; ++i)
     {
