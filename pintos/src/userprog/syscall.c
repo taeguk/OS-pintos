@@ -13,27 +13,25 @@
 
 #define STACK_BLOCK   4
 #define SYS_ARG_PTR(ESP, IDX) ((uintptr_t) (ESP) + (IDX) * STACK_BLOCK)
-#define SYS_RETURN(VALUE) ({ *sys_ret = (int) (VALUE) ; return; })
+#define SYS_RETURN(RET, VALUE) ({ *(RET) = (int) (VALUE) ; return; })
 
 inline static bool chk_valid_ptr (const void *);
 static void syscall_handler (struct intr_frame *);
 
 /* syscalls... */
-static void syscall_fibonacci (void *arg_top);
-static void syscall_sum_of_four_integers  (void *arg_top);
-static void syscall_halt  (void *arg_top);
-static void syscall_exit  (void *arg_top);
-static void syscall_exec  (void *arg_top);
-static void syscall_wait  (void *arg_top);
-static void syscall_read  (void *arg_top);
-static void syscall_write (void *arg_top);
+static void syscall_fibonacci (void *arg_top, int *ret);
+static void syscall_sum_of_four_integers  (void *arg_top, int *ret);
+static void syscall_halt  (void *arg_top, int *ret);
+static void syscall_exit  (void *arg_top, int *ret);
+static void syscall_exec  (void *arg_top, int *ret);
+static void syscall_wait  (void *arg_top, int *ret);
+static void syscall_read  (void *arg_top, int *ret);
+static void syscall_write (void *arg_top, int *ret);
 
 /* added by taeguk */
-static void (*syscall_table[SYS_MAX_NUM]) (void*);
-static int esp_fix_val[SYS_MAX_NUM];      // need to mystery problem, shift of syscall arguments...
+static void (*syscall_table[SYS_MAX_NUM]) (void*, int*);
+static int esp_fix_val[SYS_MAX_NUM];      // needed to mystery problem, shift of syscall arguments...
 static int arg_size[SYS_MAX_NUM];
-
-static int *sys_ret;
 
 void
 syscall_init (void) 
@@ -114,18 +112,17 @@ syscall_handler (struct intr_frame *f)
     {
       void *arg_top;
       
-      sys_ret = (int*) &f->eax;
       arg_top = (void*) ((uintptr_t) f->esp + STACK_BLOCK + esp_fix_val[syscall_num]);
 
       if (! is_user_vaddr((void*) ((uintptr_t) arg_top + arg_size[syscall_num] - STACK_BLOCK)))
         thread_exit ();
 
-      syscall_table[syscall_num](arg_top);
+      syscall_table[syscall_num](arg_top, &f->eax);
     }
 }
 
 static void 
-syscall_fibonacci (void *arg_top)
+syscall_fibonacci (void *arg_top, int *ret)
 {
   // Load syscall arguments.
   int n = * (int *) SYS_ARG_PTR (arg_top, 0);
@@ -135,7 +132,7 @@ syscall_fibonacci (void *arg_top)
   a = 0; b = c = 1;
 
   if(n == 0) 
-    SYS_RETURN (0);
+    SYS_RETURN (ret, 0);
 
   for(i = 1; i < n; ++i)
     {
@@ -144,11 +141,11 @@ syscall_fibonacci (void *arg_top)
       b = c;
     }
 
-  SYS_RETURN (c);
+  SYS_RETURN (ret, c);
 }
 
 static void
-syscall_sum_of_four_integers (void *arg_top)
+syscall_sum_of_four_integers (void *arg_top, int *ret)
 {
   /* Load syscall arguments. */
   int a = * (int *) SYS_ARG_PTR (arg_top, 0);
@@ -156,17 +153,17 @@ syscall_sum_of_four_integers (void *arg_top)
   int c = * (int *) SYS_ARG_PTR (arg_top, 2);
   int d = * (int *) SYS_ARG_PTR (arg_top, 3);
 
-  SYS_RETURN (a+b+c+d);
+  SYS_RETURN (ret, a+b+c+d);
 }
 
 static void 
-syscall_halt (void *arg_top UNUSED)
+syscall_halt (void *arg_top UNUSED, int *ret UNUSED)
 {
   shutdown_power_off();
 }
 
 static void
-syscall_exit (void *arg_top)
+syscall_exit (void *arg_top, int *ret UNUSED)
 {
   /* Load syscall arguments */
   int status = * (int *) SYS_ARG_PTR (arg_top, 0);
@@ -178,28 +175,28 @@ syscall_exit (void *arg_top)
 }
 
 static void
-syscall_exec (void *arg_top)
+syscall_exec (void *arg_top, int *ret)
 {
   /* Load syscall arguments */
   const char *file = * (char **) SYS_ARG_PTR (arg_top, 0);
 
   if (! chk_valid_ptr (file))
-    SYS_RETURN (-1);
+    SYS_RETURN (ret, -1);
 
-  SYS_RETURN ( process_execute(file) ); 
+  SYS_RETURN ( ret, process_execute(file) ); 
 }
 
 static void
-syscall_wait (void *arg_top)
+syscall_wait (void *arg_top, int *ret)
 {
   /* Load syscall arguments. */
   pid_t pid = * (pid_t *) SYS_ARG_PTR (arg_top, 0); 
 
-  SYS_RETURN ( process_wait(pid) );
+  SYS_RETURN ( ret, process_wait(pid) );
 }
 
 static void
-syscall_read (void *arg_top)
+syscall_read (void *arg_top, int *ret)
 {
   // must be modified...
   /* Load syscall arguments */
@@ -210,20 +207,20 @@ syscall_read (void *arg_top)
   int i;
 
   if (! chk_valid_ptr (buffer))
-    SYS_RETURN (-1);
+    SYS_RETURN (ret, -1);
 
   if (fd == 0 && buffer != NULL)
     {
       for(i = 0; i < size; ++i)
         *(char*)(buffer + i) = input_getc();
-      SYS_RETURN (i);
+      SYS_RETURN (ret, i);
     }
 
-  SYS_RETURN (-1);
+  SYS_RETURN (ret, -1);
 }
 
 static void
-syscall_write (void *arg_top)
+syscall_write (void *arg_top, int *ret)
 {  
   /* Load syscall arguments */
   int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
@@ -231,13 +228,13 @@ syscall_write (void *arg_top)
   unsigned size = * (unsigned *) SYS_ARG_PTR (arg_top, 2);
 
   if (! chk_valid_ptr (buffer))
-    SYS_RETURN (-1);
+    SYS_RETURN (ret, -1);
 
   if (fd == 1 && buffer != NULL)
     {
       putbuf (buffer, size);
-      SYS_RETURN (size);
+      SYS_RETURN (ret, size);
     }
 
-  SYS_RETURN (0);
+  SYS_RETURN (ret, 0);
 }
