@@ -69,6 +69,8 @@ syscall_init (void)
   syscall_table[SYS_WRITE] = syscall_write;
   esp_fix_val[SYS_WRITE] = 16;
   arg_size[SYS_WRITE] = STACK_BLOCK * 3;
+
+  /* you must add initialization to here when new system call added. */
 }
 
 inline static bool
