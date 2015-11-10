@@ -10,6 +10,7 @@
 #include "devices/shutdown.h"
 #include "devices/input.h"
 #include "userprog/process.h"
+#include "filesys/filesys.h"
 
 #define STACK_BLOCK   4
 #define SYS_ARG_PTR(ESP, IDX) ((uintptr_t) (ESP) + (IDX) * STACK_BLOCK)
@@ -25,13 +26,22 @@ static void syscall_halt  (void *arg_top, int *ret);
 static void syscall_exit  (void *arg_top, int *ret);
 static void syscall_exec  (void *arg_top, int *ret);
 static void syscall_wait  (void *arg_top, int *ret);
-static void syscall_read  (void *arg_top, int *ret);
-static void syscall_write (void *arg_top, int *ret);
+
+static void syscall_create  (void *arg_top, int *ret);
+static void syscall_remove  (void *arg_top, int *ret);
+static void syscall_read    (void *arg_top, int *ret);
+static void syscall_write   (void *arg_top, int *ret);
 
 /* added by taeguk */
 static void (*syscall_table[SYS_MAX_NUM]) (void*, int*);
 static int esp_fix_val[SYS_MAX_NUM];      // needed to mystery problem, shift of syscall arguments...
 static int arg_size[SYS_MAX_NUM];
+
+// my work-------
+// create, remove
+// read, write
+//
+// youjoon work : open, close, seek, tell, filesize
 
 void
 syscall_init (void) 
@@ -61,6 +71,15 @@ syscall_init (void)
   syscall_table[SYS_WAIT] = syscall_wait;
   esp_fix_val[SYS_WAIT] = 0;
   arg_size[SYS_WAIT] = STACK_BLOCK * 1;
+
+
+  syscall_table[SYS_CREATE] = syscall_create;
+  esp_fix_val[SYS_CREATE] = 12;
+  arg_size[SYS_CREATE] = STACK_BLOCK * 2;
+
+  syscall_table[SYS_REMOVE] = syscall_remove;
+  esp_fix_val[SYS_REMOVE] = 0;
+  arg_size[SYS_REMOVE] = STACK_BLOCK * 1;
 
   syscall_table[SYS_READ] = syscall_read;
   esp_fix_val[SYS_READ] = 16;
@@ -195,6 +214,37 @@ syscall_wait (void *arg_top, int *ret)
   pid_t pid = * (pid_t *) SYS_ARG_PTR (arg_top, 0); 
 
   SYS_RETURN ( ret, process_wait(pid) );
+}
+
+static void 
+syscall_create (void *arg_top, int *ret)
+{
+  /* Load syscall arguments. */
+  const char *file = * (char **) SYS_ARG_PTR (arg_top, 0); 
+  unsigned initial_size = * (unsigned *) SYS_ARG_PTR (arg_top, 1); 
+
+  if (! chk_valid_ptr (file))
+    thread_exit ();
+
+  if (file == NULL)
+    thread_exit ();
+  
+  SYS_RETURN (ret, filesys_create (file, initial_size));
+}
+
+static void 
+syscall_remove (void *arg_top, int *ret)
+{
+  /* Load syscall arguments. */
+  const char *file = * (char **) SYS_ARG_PTR (arg_top, 0);
+ 
+  if (! chk_valid_ptr (file))
+    thread_exit ();
+
+  if (file == NULL)
+    thread_exit ();
+
+  SYS_RETURN (ret, filesys_remove (file));
 }
 
 static void
