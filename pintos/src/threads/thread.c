@@ -657,9 +657,10 @@ thread_remove_file (struct thread *t, struct file *file)
   // do do do!
 }
 
-/* remove all files from thread */
+/* remove all files from thread. and execute action_func to all files. if
+ * action_func is NULL, execute nothing. */
 void 
-thread_clear_file_list (struct thread *t)
+thread_clear_file_list (struct thread *t, thread_file_action_func *action_func)
 {
   // please code... younjoon...
   // yeah man.

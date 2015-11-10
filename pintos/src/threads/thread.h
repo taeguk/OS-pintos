@@ -156,16 +156,13 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 /* added by taeguk for project 2-2 */
-//int get_avail_fd (void);
-/* add file to thread */
-bool thread_add_file (struct thread *t, struct file *file);
-/* get file from fd of thread */
-struct file *thread_get_file (struct thread *t, int fd);
-/* remove file from thread */
-void thread_remove_file (struct thread *t, struct file *file);
-/* remove all files from thread */
-void thread_clear_file_list (struct thread *t);
 
-list_remove
+/* Performs some operation on file f, given auxiliary data AUX. */
+typedef void thread_file_action_func (const struct file *f, void *aux);
+
+bool thread_add_file (struct thread *, struct file *);
+struct file *thread_get_file (struct thread *, int);
+void thread_remove_file (struct thread *, struct file *);
+void thread_clear_file_list (struct thread *, thread_file_action_func *);
 
 #endif /* threads/thread.h */

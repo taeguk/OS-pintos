@@ -200,7 +200,7 @@ process_exit (void)
   /*
    * free resources that current process owned.
    */
-  thread_clear_file_list (cur);
+  thread_clear_file_list (cur, NULL/*must be modified...must do something.*/);
   for (e = list_begin (&cur->child_list); 
        e != list_end (&cur->child_list); e = list_next(e)) 
     {
