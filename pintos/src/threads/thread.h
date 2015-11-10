@@ -103,6 +103,10 @@ struct thread
     struct semaphore exit_sema;   // held by parent while parent is not waiting child, unlocked by parent when parent get child's exit code.
 #endif
 
+#ifdef USERPROG
+    struct list *file_list;
+#endif
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -150,5 +154,18 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* added by taeguk for project 2-2 */
+//int get_avail_fd (void);
+/* add file to thread */
+bool thread_add_file (struct thread *t, struct file *file);
+/* get file from fd of thread */
+struct file *thread_get_file (struct thread *t, int fd);
+/* remove file from thread */
+void thread_remove_file (struct thread *t, struct file *file);
+/* remove all files from thread */
+void thread_clear_file_list (struct thread *t);
+
+list_remove
 
 #endif /* threads/thread.h */

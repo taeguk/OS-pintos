@@ -70,6 +70,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+static int get_avail_fd (struct thread *t);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -482,6 +483,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->exit_code = -1;
   sema_init (&t->exit_sema, 0);
   sema_init (&t->wait_sema, 0);
+
+  list_init (&t->file_list);
 #endif
 }
 
@@ -598,3 +601,66 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+/* added by taeguk and coded by younjoon for project 2-2 */
+
+/* 
+ * To Younjoon,
+ *  I write hints for implementation.
+ *  But hints are not 100% correct.
+ *  Just hints are hints. :)
+ *  Cheerful! We are a best team that represents 14 and fights against comeback-superior!
+ */
+
+/* get available fd in thread.
+ * return value : available fd (success), -1 (fail)
+ *  *the reason of failure : no available fd.
+ */
+static int 
+get_avail_fd (struct thread *t)
+{
+  // please code... younjoon...
+  // get avail file descriptor number.
+  // iterate t->file_list and get smallest available file descriptor number.
+  // * t->file_list is ordered list. (order rule : ascending fd)
+}
+
+/* add file to thread 
+ * return value : true (success), false (fail)
+ */
+bool 
+thread_add_file (struct thread *t, struct file *file)
+{
+  // please code... younjoon...
+  // get available fd using get_avail_fd.
+  // file->fd = available fd.
+  // add file to t->file_list.
+  // hint : list_insert_ordered. (you must make list_less_func. this must be static function.)
+}
+
+/* get file from fd of thread 
+ * return value : file (success), NULL (fail)
+ */
+struct file *
+thread_get_file (struct thread *t, int fd)
+{
+  // please code... younjoon...
+  // if you can't do it, you are trash. go back c programming class.
+  // (hint : iterate t->file_list)
+}
+
+/* remove file from thread */
+void
+thread_remove_file (struct thread *t, struct file *file)
+{
+  // please code... younjoon...
+  // do do do!
+}
+
+/* remove all files from thread */
+void 
+thread_clear_file_list (struct thread *t)
+{
+  // please code... younjoon...
+  // yeah man.
+}
