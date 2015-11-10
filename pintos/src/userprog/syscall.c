@@ -32,6 +32,9 @@ static void syscall_remove  (void *arg_top, int *ret);
 static void syscall_read    (void *arg_top, int *ret);
 static void syscall_write   (void *arg_top, int *ret);
 
+static void syscall_open    (void *arg_top, int *ret);
+static void syscall_close   (void *arg_top, int *ret);
+
 /* added by taeguk */
 static void (*syscall_table[SYS_MAX_NUM]) (void*, int*);
 static int esp_fix_val[SYS_MAX_NUM];      // needed to mystery problem, shift of syscall arguments...
@@ -40,8 +43,9 @@ static int arg_size[SYS_MAX_NUM];
 // my work-------
 // create, remove
 // read, write
+// open, close
 //
-// youjoon work : open, close, seek, tell, filesize
+// youjoon work : seek, tell, filesize
 
 void
 syscall_init (void) 
@@ -88,6 +92,15 @@ syscall_init (void)
   syscall_table[SYS_WRITE] = syscall_write;
   esp_fix_val[SYS_WRITE] = 16;
   arg_size[SYS_WRITE] = STACK_BLOCK * 3;
+
+
+  syscall_table[SYS_OPEN] = syscall_open;
+  esp_fix_val[SYS_OPEN] = 0;
+  arg_size[SYS_OPEN] = STACK_BLOCK * 1;
+
+  syscall_table[SYS_CLOSE] = syscall_close;
+  esp_fix_val[SYS_CLOSE] = 0;
+  arg_size[SYS_CLOSE] = STACK_BLOCK * 1;
 
   /* you must add initialization to here when new system call added. */
 }
@@ -220,13 +233,13 @@ static void
 syscall_create (void *arg_top, int *ret)
 {
   /* Load syscall arguments. */
-  const char *file = * (char **) SYS_ARG_PTR (arg_top, 0); 
+  const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0); 
   unsigned initial_size = * (unsigned *) SYS_ARG_PTR (arg_top, 1); 
 
-  if (! chk_valid_ptr (file))
+  if (! chk_valid_ptr (file_name))
     thread_exit ();
 
-  if (file == NULL)
+  if (file_name == NULL)
     thread_exit ();
   
   SYS_RETURN (ret, filesys_create (file, initial_size));
@@ -236,21 +249,20 @@ static void
 syscall_remove (void *arg_top, int *ret)
 {
   /* Load syscall arguments. */
-  const char *file = * (char **) SYS_ARG_PTR (arg_top, 0);
+  const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0);
  
-  if (! chk_valid_ptr (file))
+  if (! chk_valid_ptr (file_name))
     thread_exit ();
 
-  if (file == NULL)
+  if (file_name == NULL)
     thread_exit ();
 
-  SYS_RETURN (ret, filesys_remove (file));
+  SYS_RETURN (ret, filesys_remove (file_name));
 }
 
 static void
 syscall_read (void *arg_top, int *ret)
 {
-  // must be modified...
   /* Load syscall arguments */
   int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
   void *buffer = * (void **) SYS_ARG_PTR (arg_top, 1);
@@ -261,14 +273,20 @@ syscall_read (void *arg_top, int *ret)
   if (! chk_valid_ptr (buffer))
     SYS_RETURN (ret, -1);
 
-  if (fd == 0 && buffer != NULL)
+  if (fd == 1 || buffer == NULL)
+    SYS_RETURN (ret, -1);
+
+  if (fd == 0)
     {
       for(i = 0; i < size; ++i)
         *(char*)(buffer + i) = input_getc();
       SYS_RETURN (ret, i);
     }
-
-  SYS_RETURN (ret, -1);
+  else
+    {
+      // must be modified.
+      SYS_RETURN (ret, file_read (file, buffer, size));
+    }
 }
 
 static void
@@ -282,11 +300,60 @@ syscall_write (void *arg_top, int *ret)
   if (! chk_valid_ptr (buffer))
     SYS_RETURN (ret, -1);
 
-  if (fd == 1 && buffer != NULL)
+  if (fd == 0 || buffer == NULL)
+    SYS_RETURN (ret, -1);
+
+  if (fd == 1)
     {
       putbuf (buffer, size);
       SYS_RETURN (ret, size);
     }
+  else
+    {
+      // must be modified.
+      SYS_RETURN (ret, file_write (file, buffer, size));
+    }
+}
 
-  SYS_RETURN (ret, 0);
+static void 
+syscall_open (void *arg_top, int *ret)
+{
+  /* Load syscall arguments. */
+  const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0);
+
+  struct thread *cur = thread_current ();
+  struct file *file;
+ 
+  if (! chk_valid_ptr (file_name))
+    thread_exit ();
+
+  if (file_name == NULL)
+    thread_exit ();
+
+  file = filesys_open (file_name);
+  if (file == NULL)
+    SYS_RETURN (ret, -1); 
+
+  if (thread_add_file (cur, file) == false)
+    SYS_RETURN (ret, -1);
+}
+
+static void 
+syscall_close (void *arg_top, int *ret)
+{
+  /* Load syscall arguments. */
+  int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
+
+  struct thread *cur = thread_current ();
+  struct file *file;
+
+  // search file using fd.
+  file = thread_get_file (cur, fd);
+  if (file == NULL)
+    SYS_RETURN (ret, -1);
+  // remove file from cur->file_list
+  if (thread_remove_file (cur, file) == false)
+    SYS_RETURN (ret, -1);
+ 
+  file_close (file);
 }
