@@ -648,6 +648,18 @@ get_avail_fd (struct thread *t)
 
 /* These functions are thread-safe :) */
 
+#ifdef USERPROG
+static bool
+less (const struct list_elem *a, const struct list_elem *b, void *aux)
+{
+  if(list_entry (a, struct file, file_elem)->fd 
+     > list_entry (b, struct file, file_elem)->fd)
+    return false;
+  else
+    return true;
+}
+#endif
+
 /* add file to thread 
  * return value : true (success), false (fail)
  */
@@ -659,6 +671,21 @@ thread_add_file (struct thread *t, struct file *file)
   // file->fd = available fd.
   // add file to t->file_list.
   // hint : list_insert_ordered. (you must make list_less_func. this must be static function.)
+
+#ifdef USERPROG
+  int avail_fd = get_avail_fd (t);
+  struct list_elem *e;
+  if(avail_fd == -1)
+    return false;
+  
+  file->fd = avail_fd;
+  for (e = list_begin (t->file_list); e != list_end (t->file_list);
+       e = list_next (e))
+      if(less (file->file_elem, e, NULL))
+        break;
+  list_insert (e, &(file->file_elem));
+  return true;
+#endif
 }
 
 /* get file from fd of thread 
