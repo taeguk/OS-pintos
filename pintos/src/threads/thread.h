@@ -6,6 +6,11 @@
 #include <stdint.h>
 #include "threads/synch.h"
 
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+
+struct file;
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -157,9 +162,11 @@ int thread_get_load_avg (void);
 
 /* added by taeguk for project 2-2 */
 
-/* Performs some operation on file f, given auxiliary data AUX. */
+/* Performs some operation on file f, given auxiliary data AUX.
+ * Assume this function is thread-safe. */
 typedef void thread_file_action_func (const struct file *f, void *aux);
 
+/* These functions are thread-safe :) */
 bool thread_add_file (struct thread *, struct file *);
 struct file *thread_get_file (struct thread *, int);
 void thread_remove_file (struct thread *, struct file *);

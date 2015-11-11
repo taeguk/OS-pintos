@@ -396,6 +396,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   struct Elf32_Ehdr ehdr;
   struct file *file = NULL;
   off_t file_ofset;
+  bool hold_file_lock = false;
   bool success = false;
   int i;
 
@@ -406,12 +407,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  lock_acquire (&filesys_lock);
   file = filesys_open (t->name);
+  lock_release (&filesys_lock);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", t->name);
       goto done; 
     }
+  
+  file_acquire_lock (file);
+  hold_file_lock = true;
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -495,13 +501,21 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   if (!construct_stack (file_name, esp))
     goto done;
-
+  
    success = true;
 
- done:
+done:
 
   /* We arrive here whether the load is successful or not. */
+
+  if (success)
+    file_deny_write (file);
+
   file_close (file);
+  
+  if (hold_file_lock)
+    file_release_lock (file);
+
   return success;
 }
 

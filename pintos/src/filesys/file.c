@@ -14,6 +14,7 @@ struct file
     /* added by taeguk */
     int fd;                     /* File descriptor of file. */
     struct list_elem file_elem;
+    struct lock lock;
 #endif
   };
 
@@ -30,6 +31,9 @@ file_open (struct inode *inode)
       file->inode = inode;
       file->pos = 0;
       file->deny_write = false;
+#ifdef USERPROG
+      lock_init (&file->lock);
+#endif
       return file;
     }
   else
@@ -172,4 +176,20 @@ file_tell (struct file *file)
 {
   ASSERT (file != NULL);
   return file->pos;
+}
+
+/* added by taeguk for project 2-2 */
+
+void 
+file_acquire_lock (struct file *)
+{
+  lock_acquire (&file->lock);
+  lock_acquire (&file->inode->lock);
+}
+
+void 
+file_release_lock (struct file *)
+{
+  lock_release (&file->inode->lock);
+  lock_release (&file->lock);
 }

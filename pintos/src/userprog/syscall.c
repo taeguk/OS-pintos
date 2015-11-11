@@ -10,7 +10,11 @@
 #include "devices/shutdown.h"
 #include "devices/input.h"
 #include "userprog/process.h"
+
 #include "filesys/filesys.h"
+#include "filesys/file.h"
+
+struct file;
 
 #define STACK_BLOCK   4
 #define SYS_ARG_PTR(ESP, IDX) ((uintptr_t) (ESP) + (IDX) * STACK_BLOCK)
@@ -236,13 +240,19 @@ syscall_create (void *arg_top, int *ret)
   const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0); 
   unsigned initial_size = * (unsigned *) SYS_ARG_PTR (arg_top, 1); 
 
+  bool success;
+
   if (! chk_valid_ptr (file_name))
     thread_exit ();
 
   if (file_name == NULL)
     thread_exit ();
   
-  SYS_RETURN (ret, filesys_create (file, initial_size));
+  lock_acquire (&filesys_lock);
+  success = filesys_create (file, initial_size);
+  lock_release (&filesys_lock);
+
+  SYS_RETURN (ret, success);
 }
 
 static void 
@@ -250,6 +260,8 @@ syscall_remove (void *arg_top, int *ret)
 {
   /* Load syscall arguments. */
   const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0);
+  
+  bool success;
  
   if (! chk_valid_ptr (file_name))
     thread_exit ();
@@ -257,7 +269,11 @@ syscall_remove (void *arg_top, int *ret)
   if (file_name == NULL)
     thread_exit ();
 
-  SYS_RETURN (ret, filesys_remove (file_name));
+  lock_acquire (&filesys_lock);
+  success = filesys_remove (file_name);
+  lock_release (&filesys_lock);
+
+  SYS_RETURN (ret, success);
 }
 
 static void
@@ -285,7 +301,18 @@ syscall_read (void *arg_top, int *ret)
   else
     {
       // must be modified.
-      SYS_RETURN (ret, file_read (file, buffer, size));
+      struct thread *cur = thread_current ();
+      struct file *file = thread_get_file (cur, fd);
+      off_t read_sz;
+
+      if (file == NULL)
+        SYS_RETURN (ret, -1);
+
+      file_acquire_lock (file);
+      read_sz = file_read (file, buffer, size);
+      file_release_lock (file);
+
+      SYS_RETURN (ret, read_sz);
     }
 }
 
@@ -311,7 +338,18 @@ syscall_write (void *arg_top, int *ret)
   else
     {
       // must be modified.
-      SYS_RETURN (ret, file_write (file, buffer, size));
+      struct thread *cur = thread_current ();
+      struct file *file = thread_get_file (cur, fd);
+      off_t write_sz;
+
+      if (file == NULL)
+        SYS_RETURN (ret, -1);
+
+      file_acquire_lock (file);
+      write_sz = file_write (file, buffer, size);
+      file_release_lock (file);
+
+      SYS_RETURN (ret, write_sz);
     }
 }
 
@@ -330,7 +368,10 @@ syscall_open (void *arg_top, int *ret)
   if (file_name == NULL)
     thread_exit ();
 
+  lock_acquire (&filesys_lock);
   file = filesys_open (file_name);
+  lock_release (&filesys_lock);
+
   if (file == NULL)
     SYS_RETURN (ret, -1); 
 
@@ -349,11 +390,15 @@ syscall_close (void *arg_top, int *ret)
 
   // search file using fd.
   file = thread_get_file (cur, fd);
+
   if (file == NULL)
     SYS_RETURN (ret, -1);
+
   // remove file from cur->file_list
   if (thread_remove_file (cur, file) == false)
     SYS_RETURN (ret, -1);
  
+  lock_acquire (&filesys_lock);
   file_close (file);
+  lock_release (&filesys_lock);
 }

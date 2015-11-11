@@ -625,6 +625,8 @@ get_avail_fd (struct thread *t)
   // * t->file_list is ordered list. (order rule : ascending fd)
 }
 
+/* These functions are thread-safe :) */
+
 /* add file to thread 
  * return value : true (success), false (fail)
  */

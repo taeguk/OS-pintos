@@ -11,6 +11,9 @@
 /* Block device that contains the file system. */
 struct block *fs_device;
 
+/* added by taeguk for project 2-2 */
+struct lock filesys_lock;
+
 void filesys_init (bool format);
 void filesys_done (void);
 bool filesys_create (const char *name, off_t initial_size);
