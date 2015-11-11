@@ -13,9 +13,10 @@
 struct block *fs_device;
 
 /* added by taeguk for project 2-2 */
-/* lock for file system. 
+/* Lock for file system. (but not file or inode)
+ * This is for synchronization among filesys_*.
  * Be cautious about that critical section is so big and
- *  it can be bad for performance. So be careful for locking file system
+ *  it can be bad for performance. So be careful to using this.
  */
 struct lock filesys_lock;
 

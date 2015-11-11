@@ -398,6 +398,7 @@ syscall_close (void *arg_top, int *ret)
   thread_remove_file (cur, file);
  
   lock_acquire (&filesys_lock);
-  file_close (file);
+  file_close (file);            // problem can be occured when other thread is accessing file.
+                                // this assumes that file structure is accessed by only one thread, not multiple thread.
   lock_release (&filesys_lock);
 }
