@@ -510,12 +510,14 @@ done:
 
   if (success)
     file_deny_write (file);
-
-  file_close (file);
   
   if (hold_file_lock)
     file_release_lock (file);
 
+  lock_acquire (&filesys_lock);
+  file_close (file);
+  lock_release (&filesys_lock);
+  
   return success;
 }
 
