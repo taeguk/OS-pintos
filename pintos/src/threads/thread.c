@@ -623,6 +623,27 @@ get_avail_fd (struct thread *t)
   // get avail file descriptor number.
   // iterate t->file_list and get smallest available file descriptor number.
   // * t->file_list is ordered list. (order rule : ascending fd)
+
+#ifdef USERPROG
+  int avail_fd = 2; /* 0 and 1 are reserved */
+  struct list_elem *e;
+ 
+  for (e = list_begin (t); e != list_end (t);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct file, file_elem);
+      if(avail_fd == e->fd)
+        ++avail_fd;
+      else
+        return avail_fd;
+    }
+
+  if(avail_fd >= 128)
+  /* exceeds the limit of 128 open files per process */
+    return -1;
+  else
+    return avail_fd;
+#endif
 }
 
 /* These functions are thread-safe :) */
