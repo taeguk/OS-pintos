@@ -631,7 +631,7 @@ get_avail_fd (struct thread *t)
   for (e = list_begin (t->file_list); e != list_end (t->file_list);
        e = list_next (e))
     {
-      struct thread *t = list_entry (e, struct file, file_elem);
+      struct file *t = list_entry (e, struct file, file_elem);
       if(avail_fd == e->fd)
         ++avail_fd;
       else
@@ -670,26 +670,21 @@ thread_get_file (struct thread *t, int fd)
   // please code... younjoon...
   // if you can't do it, you are trash. go back c programming class.
   // (hint : iterate t->file_list)
-  
-  /*
+
 #ifdef USERPROG
   struct list_elem *e;
 
   for (e = list_begin (t->file_list); e != list_end (t->file_list);
        e = list_next (e))
     {
-      struct thread *t = list_entry (e, struct file, file_elem);
-      if(avail_fd == e->fd)
-        ++avail_fd;
-      else
-        return avail_fd;
+      struct file *t = list_entry (e, struct file, file_elem);
+      if(t->fd == fd)
+        return t;
     }
 
-  
-
-
+  /* fd does not exist */
+  return NULL; 
 #endif
-  */
 }
 
 /* remove file from thread */
