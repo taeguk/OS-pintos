@@ -249,7 +249,7 @@ syscall_create (void *arg_top, int *ret)
     thread_exit ();
   
   lock_acquire (&filesys_lock);
-  success = filesys_create (file, initial_size);
+  success = filesys_create (file_name, initial_size);
   lock_release (&filesys_lock);
 
   SYS_RETURN (ret, success);
@@ -395,8 +395,7 @@ syscall_close (void *arg_top, int *ret)
     SYS_RETURN (ret, -1);
 
   // remove file from cur->file_list
-  if (thread_remove_file (cur, file) == false)
-    SYS_RETURN (ret, -1);
+  thread_remove_file (cur, file);
  
   lock_acquire (&filesys_lock);
   file_close (file);

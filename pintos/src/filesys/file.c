@@ -3,6 +3,9 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 
+#include "lib/kernel/list.h"
+#include "threads/thread.h"
+
 /* An open file. */
 /* Assume that only one thread access this structure at once. */
 struct file 
@@ -28,7 +31,6 @@ file_open (struct inode *inode)
   struct file *file = calloc (1, sizeof *file);
   if (inode != NULL && file != NULL)
     {
-      struct thread *t = thread_current ();
       file->inode = inode;
       file->pos = 0;
       file->deny_write = false;
@@ -182,15 +184,15 @@ file_tell (struct file *file)
 /* added by taeguk for project 2-2 */
 
 void 
-file_acquire_lock (struct file *)
+file_acquire_lock (struct file *file)
 {
   //lock_acquire (&file->lock);
-  lock_acquire (&file->inode->lock);
+  inode_acquire_lock (file->inode);
 }
 
 void 
-file_release_lock (struct file *)
+file_release_lock (struct file *file)
 {
-  //lock_release (&file->inode->lock);
-  lock_release (&file->lock);
+  inode_release_lock (file->inode);
+  //lock_release (&file->lock);
 }

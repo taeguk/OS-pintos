@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include "filesys/off_t.h"
 
+#include "threads/synch.h"
+
 /* Sectors of system file inodes. */
 #define FREE_MAP_SECTOR 0       /* Free map file inode sector. */
 #define ROOT_DIR_SECTOR 1       /* Root directory file inode sector. */

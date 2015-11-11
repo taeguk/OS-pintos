@@ -7,6 +7,8 @@
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 
+#include "threads/synch.h"
+
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
@@ -352,4 +354,17 @@ off_t
 inode_length (const struct inode *inode)
 {
   return inode->data.length;
+}
+
+/* added by taeguk for project 2-2 */
+void 
+inode_acquire_lock (struct inode *inode)
+{
+  lock_acquire (&inode->lock);
+}
+
+void 
+inode_release_lock (struct inode *inode)
+{
+  lock_release (&inode->lock);
 }
