@@ -9,8 +9,6 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 
-struct file;
-
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -109,7 +107,8 @@ struct thread
 #endif
 
 #ifdef USERPROG
-    struct list *file_list;
+    struct file *self_file;
+    struct list file_list;
 #endif
 
     /* Shared between thread.c and synch.c. */
@@ -169,7 +168,7 @@ typedef void thread_file_action_func (struct file *f, void *aux);
 /* These functions are thread-safe :) */
 bool thread_add_file (struct thread *, struct file *);
 struct file *thread_get_file (struct thread *, int);
-void thread_remove_file (struct thread *, struct file *);
+void thread_remove_file (struct thread *t, struct file *file, thread_file_action_func *action_func);
 void thread_clear_file_list (struct thread *, thread_file_action_func *);
 
 #endif /* threads/thread.h */

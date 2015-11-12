@@ -173,7 +173,7 @@ process_wait (tid_t child_tid)
 }
 
 static void 
-process_file_close (struct file *f, void *aux)
+process_file_close (struct file *f, void *aux UNUSED)
 {
   lock_acquire (&filesys_lock);
   file_close (f);
@@ -209,6 +209,10 @@ process_exit (void)
   /*
    * free resources that current process owned.
    */
+  
+  if (lock_held_by_current_thread (&filesys_lock))
+    lock_release (&filesys_lock);
+
   thread_clear_file_list (cur, process_file_close);
 
   for (e = list_begin (&cur->child_list); 
@@ -216,6 +220,13 @@ process_exit (void)
     {
       struct thread *c = list_entry (e, struct thread, child_elem);
       sema_up (&c->exit_sema);
+    }
+
+  if (cur->self_file)
+    {
+      lock_acquire (&filesys_lock);
+      file_close (cur->self_file);
+      lock_release (&filesys_lock);
     }
 
   printf ("%s: exit(%d)\n", cur->name, cur->exit_code);
@@ -476,6 +487,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
               uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
               uint32_t page_offset = phdr.p_vaddr & PGMASK;
               uint32_t read_bytes, zero_bytes;
+              if (mem_page == 0)
+                mem_page = 0x1000;
               if (phdr.p_filesz > 0)
                 {
                   /* Normal segment.
@@ -519,15 +532,14 @@ done:
   /* We arrive here whether the load is successful or not. */
 
   if (success)
-    file_deny_write (file);
+    {
+      file_deny_write (file);
+      t->self_file = file;
+    }
   
   if (hold_file_lock)
     file_release_lock (file);
 
-  lock_acquire (&filesys_lock);
-  file_close (file);
-  lock_release (&filesys_lock);
-  
   return success;
 }
 

@@ -484,6 +484,7 @@ init_thread (struct thread *t, const char *name, int priority)
   sema_init (&t->exit_sema, 0);
   sema_init (&t->wait_sema, 0);
 
+  t->self_file = NULL;
   list_init (&t->file_list);
 #endif
 }
@@ -624,15 +625,14 @@ get_avail_fd (struct thread *t)
   // iterate t->file_list and get smallest available file descriptor number.
   // * t->file_list is ordered list. (order rule : ascending fd)
 
-#ifdef USERPROG
   int avail_fd = 2; /* 0 and 1 are reserved */
   struct list_elem *e;
  
-  for (e = list_begin (t->file_list); e != list_end (t->file_list);
+  for (e = list_begin (&t->file_list); e != list_end (&t->file_list);
        e = list_next (e))
     {
-      struct file *t = list_entry (e, struct file, file_elem);
-      if(avail_fd == e->fd)
+      struct file *f = list_entry (e, struct file, file_elem);
+      if(avail_fd == f->fd)
         ++avail_fd;
       else
         return avail_fd;
@@ -643,20 +643,16 @@ get_avail_fd (struct thread *t)
     return -1;
   else
     return avail_fd;
-#endif
 }
 
 /* These functions are thread-safe :) */
 
 #ifdef USERPROG
 static bool
-less (const struct list_elem *a, const struct list_elem *b, void *aux)
+less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-  if(list_entry (a, struct file, file_elem)->fd 
-     > list_entry (b, struct file, file_elem)->fd)
-    return false;
-  else
-    return true;
+  return list_entry (a, struct file, file_elem)->fd 
+          < list_entry (b, struct file, file_elem)->fd;
 }
 #endif
 
@@ -672,20 +668,14 @@ thread_add_file (struct thread *t, struct file *file)
   // add file to t->file_list.
   // hint : list_insert_ordered. (you must make list_less_func. this must be static function.)
 
-#ifdef USERPROG
   int avail_fd = get_avail_fd (t);
-  struct list_elem *e;
+
   if(avail_fd == -1)
     return false;
   
   file->fd = avail_fd;
-  for (e = list_begin (t->file_list); e != list_end (t->file_list);
-       e = list_next (e))
-      if(less (&(file->file_elem), e, NULL))
-        break;
-  list_insert (e, &(file->file_elem));
+  list_insert_ordered (&t->file_list, &file->file_elem, less, NULL);
   return true;
-#endif
 }
 
 /* get file from fd of thread 
@@ -698,10 +688,9 @@ thread_get_file (struct thread *t, int fd)
   // if you can't do it, you are trash. go back c programming class.
   // (hint : iterate t->file_list)
 
-#ifdef USERPROG
   struct list_elem *e;
 
-  for (e = list_begin (t->file_list); e != list_end (t->file_list);
+  for (e = list_begin (&t->file_list); e != list_end (&t->file_list);
        e = list_next (e))
     {
       struct file *t = list_entry (e, struct file, file_elem);
@@ -711,26 +700,18 @@ thread_get_file (struct thread *t, int fd)
 
   /* fd does not exist */
   return NULL; 
-#endif
 }
 
 /* remove file from thread */
 /* something seems wrong!! */
 void
-thread_remove_file (struct thread *t, struct file *file)
+thread_remove_file (struct thread *t, struct file *file, thread_file_action_func *action_func)
 {
   // please code... younjoon...
   // do do do!
-#ifdef USERPROG
-  if( (file->file_elem).next == NULL)
-    (file->file_elem).prev->next = NULL;
-  else if( (file->file_elem).prev == NULL)
-    (file->file_elem).next->prev = NULL;
-  else
-    list_remove (&(file->file_elem));
-
-  free(file);
-#endif
+  list_remove (&(file->file_elem));
+  if (action_func != NULL)
+    action_func (file, NULL);
 }
 
 /* remove all files from thread. and execute action_func to all files. if
@@ -741,13 +722,10 @@ thread_clear_file_list (struct thread *t, thread_file_action_func *action_func)
 {
   // please code... younjoon...
   // yeah man.
-#ifdef USERPROG
-  while(!list_empty(t->file_list))
+  while(!list_empty (&t->file_list))
     {
-      struct file *f = list_entry( list_pop_front (t->file_list), struct file, file_elem);
-      if(action_func != NULL)
-        action_func( f, NULL);
-      free(f);
+      struct file *f = list_entry ( list_pop_front (&t->file_list), struct file, file_elem);
+      if (action_func != NULL)
+        action_func(f, NULL);
     }
-#endif 
 }

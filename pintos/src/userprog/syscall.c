@@ -14,8 +14,6 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 
-struct file;
-
 #define STACK_BLOCK   4
 #define SYS_ARG_PTR(ESP, IDX) ((uintptr_t) (ESP) + (IDX) * STACK_BLOCK)
 #define SYS_RETURN(RET, VALUE) ({ *(RET) = (int) (VALUE) ; return; })
@@ -40,8 +38,8 @@ static void syscall_open    (void *arg_top, int *ret);
 static void syscall_close   (void *arg_top, int *ret);
 
 static void syscall_seek (void *arg_top, int *ret);
-static int syscall_filesize (void *arg_top, int *ret);
-static unsigned syscall_tell (void *arg_top, int *ret);
+static void syscall_filesize (void *arg_top, int *ret);
+static void syscall_tell (void *arg_top, int *ret);
 
 /* added by taeguk */
 static void (*syscall_table[SYS_MAX_NUM]) (void*, int*);
@@ -111,15 +109,15 @@ syscall_init (void)
   arg_size[SYS_CLOSE] = STACK_BLOCK * 1;
 
   syscall_table[SYS_SEEK] = syscall_seek;
-  esp_fix_val[SYS_SEEK];
+  esp_fix_val[SYS_SEEK] = 12;
   arg_size[SYS_SEEK] = STACK_BLOCK * 2;
 
   syscall_table[SYS_FILESIZE] = syscall_filesize;
-  esp_fix_val[SYS_FILESIZE];
+  esp_fix_val[SYS_FILESIZE] = 0;
   arg_size[SYS_FILESIZE] = STACK_BLOCK * 1;
 
   syscall_table[SYS_TELL] = syscall_tell;
-  esp_fix_val[SYS_TELL];
+  esp_fix_val[SYS_TELL] = 0;
   arg_size[SYS_TELL] = STACK_BLOCK * 1;
 
   /* you must add initialization to here when new system call added. */
@@ -174,42 +172,6 @@ syscall_handler (struct intr_frame *f)
       syscall_table[syscall_num](arg_top, &f->eax);
     }
 }
-
-static unsigned
-syscall_tell (voidd *arg_top, int *ret)
-{
-  // Load syscall arguments
-  int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
-  struct thread *current_thread = thread_current();
-  struct file *current_file = thread_get_file (cur_thread, fd);
-
-  SYS_RETURN (ret, (unsigned)file_tell (current_file));
-}
-
-static int 
-syscall_filesize (void *arg_top, int *ret)
-{
-  // Load syscall arguments
-  int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
-  struct thread *current_thread = thread_current();
-  struct file *current_file = thread_get_file (cur_thread, fd);
-
-  SYS_RETURN (ret, (int)file_length (current_file));
-}
-
-static void
-syscall_seek (void *arg_top, int *ret)
-{
-  // Load syscall arguments.
-  int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
-  unsigned position = * (unsigned *) SYS_ARG_PTR(arg_top, 1);
-  struct thread *current_thread = thread_current();
-  struct file *current_file = thread_get_file (cur_thread, fd);
-  
-  if(cur_file)
-    file_seek(current_file, (off_t)position);
-}
-
 
 static void 
 syscall_fibonacci (void *arg_top, int *ret)
@@ -339,10 +301,10 @@ syscall_read (void *arg_top, int *ret)
   int i;
 
   if (! chk_valid_ptr (buffer))
-    SYS_RETURN (ret, -1);
+    thread_exit ();
 
   if (fd == 1 || buffer == NULL)
-    SYS_RETURN (ret, -1);
+    thread_exit ();
 
   if (fd == 0)
     {
@@ -377,10 +339,10 @@ syscall_write (void *arg_top, int *ret)
   unsigned size = * (unsigned *) SYS_ARG_PTR (arg_top, 2);
 
   if (! chk_valid_ptr (buffer))
-    SYS_RETURN (ret, -1);
+    thread_exit ();
 
   if (fd == 0 || buffer == NULL)
-    SYS_RETURN (ret, -1);
+    thread_exit ();
 
   if (fd == 1)
     {
@@ -429,6 +391,8 @@ syscall_open (void *arg_top, int *ret)
 
   if (thread_add_file (cur, file) == false)
     SYS_RETURN (ret, -1);
+
+  SYS_RETURN (ret, file->fd);
 }
 
 static void 
@@ -447,10 +411,48 @@ syscall_close (void *arg_top, int *ret)
     SYS_RETURN (ret, -1);
 
   // remove file from cur->file_list
-  thread_remove_file (cur, file);
+  thread_remove_file (cur, file, NULL);
  
   lock_acquire (&filesys_lock);
   file_close (file);            // problem can be occured when other thread is accessing file.
                                 // this assumes that file structure is accessed by only one thread, not multiple thread.
   lock_release (&filesys_lock);
+}
+
+static void
+syscall_tell (void *arg_top, int *ret)
+{
+  // Load syscall arguments
+  int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
+
+  struct thread *current_thread = thread_current();
+  struct file *current_file = thread_get_file (current_thread, fd);
+
+  SYS_RETURN (ret, (unsigned)file_tell (current_file));
+}
+
+static void
+syscall_filesize (void *arg_top, int *ret)
+{
+  // Load syscall arguments
+  int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
+
+  struct thread *current_thread = thread_current();
+  struct file *current_file = thread_get_file (current_thread, fd);
+
+  SYS_RETURN (ret, (int)file_length (current_file));
+}
+
+static void
+syscall_seek (void *arg_top, int *ret)
+{
+  // Load syscall arguments.
+  int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
+  unsigned position = * (unsigned *) SYS_ARG_PTR(arg_top, 1);
+
+  struct thread *current_thread = thread_current();
+  struct file *current_file = thread_get_file (current_thread, fd);
+  
+  if(current_file)
+    file_seek(current_file, (off_t)position);
 }
