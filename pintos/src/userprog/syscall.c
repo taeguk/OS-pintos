@@ -49,7 +49,7 @@ static int arg_size[SYS_MAX_NUM];
 // read, write
 // open, close
 //
-// youjoon work : seek, tell, filesize
+// younjoon work : seek, tell, filesize
 
 void
 syscall_init (void) 
@@ -106,6 +106,9 @@ syscall_init (void)
   esp_fix_val[SYS_CLOSE] = 0;
   arg_size[SYS_CLOSE] = STACK_BLOCK * 1;
 
+  syscall_table[SYS_SEEK] = syscall_file_seek;
+  esp_fix_val[SYS_SEEK];
+  arg_size[SYS_SEEK] = STACK_BLOCK * 2;
   /* you must add initialization to here when new system call added. */
 }
 
@@ -158,6 +161,20 @@ syscall_handler (struct intr_frame *f)
       syscall_table[syscall_num](arg_top, &f->eax);
     }
 }
+
+static void
+syscall_file_seek (void *arg_top, int *ret)
+{
+  // Load syscall arguments.
+  int fd = * (int *) SYS_ARG_PTR (arg_top, 0);
+  unsigned position = * (unsigned *) SYS_ARG_PTR(arg_top, 1);
+  struct thread *current_thread = thread_current();
+  struct file *current_file = thread_get_file (cur_thread, fd);
+  
+  if(cur_file)
+    file_seek(current_file, (off_t)position);
+}
+
 
 static void 
 syscall_fibonacci (void *arg_top, int *ret)
