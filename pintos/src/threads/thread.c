@@ -681,7 +681,7 @@ thread_add_file (struct thread *t, struct file *file)
   file->fd = avail_fd;
   for (e = list_begin (t->file_list); e != list_end (t->file_list);
        e = list_next (e))
-      if(less (file->file_elem, e, NULL))
+      if(less (&(file->file_elem), e, NULL))
         break;
   list_insert (e, &(file->file_elem));
   return true;
@@ -715,18 +715,39 @@ thread_get_file (struct thread *t, int fd)
 }
 
 /* remove file from thread */
+/* something seems wrong!! */
 void
 thread_remove_file (struct thread *t, struct file *file)
 {
   // please code... younjoon...
   // do do do!
+#ifdef USERPROG
+  if( (file->file_elem).next == NULL)
+    (file->file_elem).prev->next = NULL;
+  else if( (file->file_elem).prev == NULL)
+    (file->file_elem).next->prev = NULL;
+  else
+    list_remove (&(file->file_elem));
+
+  free(file);
+#endif
 }
 
 /* remove all files from thread. and execute action_func to all files. if
  * action_func is NULL, execute nothing. */
+/* something seems wrong!! */
 void 
 thread_clear_file_list (struct thread *t, thread_file_action_func *action_func)
 {
   // please code... younjoon...
   // yeah man.
+#ifdef USERPROG
+  while(!list_empty(t->file_list))
+    {
+      struct file *f = list_entry( list_pop_front (t->file_list), struct file, file_elem);
+      if(action_func != NULL)
+        action_func( f, NULL);
+      free(f);
+    }
+#endif 
 }
