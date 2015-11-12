@@ -164,7 +164,7 @@ int thread_get_load_avg (void);
 
 /* Performs some operation on file f, given auxiliary data AUX.
  * Assume this function is thread-safe. */
-typedef void thread_file_action_func (const struct file *f, void *aux);
+typedef void thread_file_action_func (struct file *f, void *aux);
 
 /* These functions are thread-safe :) */
 bool thread_add_file (struct thread *, struct file *);

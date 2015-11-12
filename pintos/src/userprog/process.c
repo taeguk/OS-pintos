@@ -172,6 +172,15 @@ process_wait (tid_t child_tid)
   return exit_code;
 }
 
+static void 
+process_file_close (struct file *f, void *aux)
+{
+  lock_acquire (&filesys_lock);
+  file_close (f);
+  lock_release (&filesys_lock);
+}
+
+
 /* Free the current process's resources. */
 void
 process_exit (void)
@@ -200,7 +209,8 @@ process_exit (void)
   /*
    * free resources that current process owned.
    */
-  thread_clear_file_list (cur, NULL/*must be modified...must do something.*/);
+  thread_clear_file_list (cur, process_file_close);
+
   for (e = list_begin (&cur->child_list); 
        e != list_end (&cur->child_list); e = list_next(e)) 
     {
