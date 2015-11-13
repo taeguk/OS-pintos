@@ -431,7 +431,8 @@ syscall_filesize (void *arg_top, int *ret)
   struct file *current_file = thread_get_file (current_thread, fd);
 
   // no need to synchronize.
-  SYS_RETURN (ret, (int)file_length (current_file));
+  if (current_file)
+    SYS_RETURN (ret, (int)file_length (current_file));
 }
 
 static void
@@ -443,8 +444,8 @@ syscall_seek (void *arg_top, int *ret)
 
   struct thread *current_thread = thread_current();
   struct file *current_file = thread_get_file (current_thread, fd);
-  
+
   // no need to synchronize.
-  if(current_file)
-    file_seek(current_file, (off_t)position);
+  if (current_file)
+    file_seek(current_file, (off_t) position);
 }
