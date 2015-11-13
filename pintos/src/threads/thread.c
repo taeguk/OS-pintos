@@ -605,14 +605,6 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 /* added by taeguk and coded by younjoon for project 2-2 */
 
-/* 
- * To Younjoon,
- *  I write hints for implementation.
- *  But hints are not 100% correct.
- *  Just hints are hints. :)
- *  Cheerful! We are a best team that represents 14 and fights against comeback-superior!
- */
-
 /* get available fd in thread.
  * return value : available fd (success), -1 (fail)
  *  *the reason of failure : no available fd.
@@ -620,14 +612,9 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 static int 
 get_avail_fd (struct thread *t)
 {
-  // please code... younjoon...
-  // get avail file descriptor number.
-  // iterate t->file_list and get smallest available file descriptor number.
-  // * t->file_list is ordered list. (order rule : ascending fd)
-
   int avail_fd = 2; /* 0 and 1 are reserved */
   struct list_elem *e;
- 
+
   for (e = list_begin (&t->file_list); e != list_end (&t->file_list);
        e = list_next (e))
     {
@@ -639,20 +626,18 @@ get_avail_fd (struct thread *t)
     }
 
   if(avail_fd >= 128)
-  /* exceeds the limit of 128 open files per process */
+    /* exceeds the limit of 128 open files per process */
     return -1;
   else
     return avail_fd;
 }
-
-/* These functions are thread-safe :) */
 
 #ifdef USERPROG
 static bool
 less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   return list_entry (a, struct file, file_elem)->fd 
-          < list_entry (b, struct file, file_elem)->fd;
+    < list_entry (b, struct file, file_elem)->fd;
 }
 #endif
 
@@ -662,17 +647,11 @@ less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 bool 
 thread_add_file (struct thread *t, struct file *file)
 {
-  // please code... younjoon...
-  // get available fd using get_avail_fd.
-  // file->fd = available fd.
-  // add file to t->file_list.
-  // hint : list_insert_ordered. (you must make list_less_func. this must be static function.)
-
   int avail_fd = get_avail_fd (t);
 
   if(avail_fd == -1)
     return false;
-  
+
   file->fd = avail_fd;
   list_insert_ordered (&t->file_list, &file->file_elem, less, NULL);
   return true;
@@ -684,10 +663,6 @@ thread_add_file (struct thread *t, struct file *file)
 struct file *
 thread_get_file (struct thread *t, int fd)
 {
-  // please code... younjoon...
-  // if you can't do it, you are trash. go back c programming class.
-  // (hint : iterate t->file_list)
-
   struct list_elem *e;
 
   for (e = list_begin (&t->file_list); e != list_end (&t->file_list);
@@ -703,12 +678,9 @@ thread_get_file (struct thread *t, int fd)
 }
 
 /* remove file from thread */
-/* something seems wrong!! */
 void
 thread_remove_file (struct thread *t, struct file *file, thread_file_action_func *action_func)
 {
-  // please code... younjoon...
-  // do do do!
   list_remove (&(file->file_elem));
   if (action_func != NULL)
     action_func (file, NULL);
@@ -716,12 +688,9 @@ thread_remove_file (struct thread *t, struct file *file, thread_file_action_func
 
 /* remove all files from thread. and execute action_func to all files. if
  * action_func is NULL, execute nothing. */
-/* something seems wrong!! */
 void 
 thread_clear_file_list (struct thread *t, thread_file_action_func *action_func)
 {
-  // please code... younjoon...
-  // yeah man.
   while(!list_empty (&t->file_list))
     {
       struct file *f = list_entry ( list_pop_front (&t->file_list), struct file, file_elem);

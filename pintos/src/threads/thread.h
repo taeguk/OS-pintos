@@ -165,7 +165,6 @@ int thread_get_load_avg (void);
  * Assume this function is thread-safe. */
 typedef void thread_file_action_func (struct file *f, void *aux);
 
-/* These functions are thread-safe :) */
 bool thread_add_file (struct thread *, struct file *);
 struct file *thread_get_file (struct thread *, int);
 void thread_remove_file (struct thread *t, struct file *file, thread_file_action_func *action_func);

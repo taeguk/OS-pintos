@@ -46,13 +46,6 @@ static void (*syscall_table[SYS_MAX_NUM]) (void*, int*);
 static int esp_fix_val[SYS_MAX_NUM];      // needed to mystery problem, shift of syscall arguments...
 static int arg_size[SYS_MAX_NUM];
 
-// my work-------
-// create, remove
-// read, write
-// open, close
-//
-// younjoon work : seek, tell, filesize
-
 void
 syscall_init (void) 
 {
@@ -82,15 +75,6 @@ syscall_init (void)
   esp_fix_val[SYS_WAIT] = 0;
   arg_size[SYS_WAIT] = STACK_BLOCK * 1;
 
-
-  syscall_table[SYS_CREATE] = syscall_create;
-  esp_fix_val[SYS_CREATE] = 12;
-  arg_size[SYS_CREATE] = STACK_BLOCK * 2;
-
-  syscall_table[SYS_REMOVE] = syscall_remove;
-  esp_fix_val[SYS_REMOVE] = 0;
-  arg_size[SYS_REMOVE] = STACK_BLOCK * 1;
-
   syscall_table[SYS_READ] = syscall_read;
   esp_fix_val[SYS_READ] = 16;
   arg_size[SYS_READ] = STACK_BLOCK * 3;
@@ -99,6 +83,13 @@ syscall_init (void)
   esp_fix_val[SYS_WRITE] = 16;
   arg_size[SYS_WRITE] = STACK_BLOCK * 3;
 
+  syscall_table[SYS_CREATE] = syscall_create;
+  esp_fix_val[SYS_CREATE] = 12;
+  arg_size[SYS_CREATE] = STACK_BLOCK * 2;
+
+  syscall_table[SYS_REMOVE] = syscall_remove;
+  esp_fix_val[SYS_REMOVE] = 0;
+  arg_size[SYS_REMOVE] = STACK_BLOCK * 1;
 
   syscall_table[SYS_OPEN] = syscall_open;
   esp_fix_val[SYS_OPEN] = 0;
@@ -247,49 +238,6 @@ syscall_wait (void *arg_top, int *ret)
   SYS_RETURN ( ret, process_wait(pid) );
 }
 
-static void 
-syscall_create (void *arg_top, int *ret)
-{
-  /* Load syscall arguments. */
-  const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0); 
-  unsigned initial_size = * (unsigned *) SYS_ARG_PTR (arg_top, 1); 
-
-  bool success;
-
-  if (! chk_valid_ptr (file_name))
-    thread_exit ();
-
-  if (file_name == NULL)
-    thread_exit ();
-  
-  lock_acquire (&filesys_lock);
-  success = filesys_create (file_name, initial_size);
-  lock_release (&filesys_lock);
-
-  SYS_RETURN (ret, success);
-}
-
-static void 
-syscall_remove (void *arg_top, int *ret)
-{
-  /* Load syscall arguments. */
-  const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0);
-  
-  bool success;
- 
-  if (! chk_valid_ptr (file_name))
-    thread_exit ();
-
-  if (file_name == NULL)
-    thread_exit ();
-
-  lock_acquire (&filesys_lock);
-  success = filesys_remove (file_name);
-  lock_release (&filesys_lock);
-
-  SYS_RETURN (ret, success);
-}
-
 static void
 syscall_read (void *arg_top, int *ret)
 {
@@ -368,6 +316,49 @@ syscall_write (void *arg_top, int *ret)
 }
 
 static void 
+syscall_create (void *arg_top, int *ret)
+{
+  /* Load syscall arguments. */
+  const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0); 
+  unsigned initial_size = * (unsigned *) SYS_ARG_PTR (arg_top, 1); 
+
+  bool success;
+
+  if (! chk_valid_ptr (file_name))
+    thread_exit ();
+
+  if (file_name == NULL)
+    thread_exit ();
+  
+  lock_acquire (&filesys_lock);
+  success = filesys_create (file_name, initial_size);
+  lock_release (&filesys_lock);
+
+  SYS_RETURN (ret, success);
+}
+
+static void 
+syscall_remove (void *arg_top, int *ret)
+{
+  /* Load syscall arguments. */
+  const char *file_name = * (char **) SYS_ARG_PTR (arg_top, 0);
+  
+  bool success;
+ 
+  if (! chk_valid_ptr (file_name))
+    thread_exit ();
+
+  if (file_name == NULL)
+    thread_exit ();
+
+  lock_acquire (&filesys_lock);
+  success = filesys_remove (file_name);
+  lock_release (&filesys_lock);
+
+  SYS_RETURN (ret, success);
+}
+
+static void 
 syscall_open (void *arg_top, int *ret)
 {
   /* Load syscall arguments. */
@@ -404,18 +395,16 @@ syscall_close (void *arg_top, int *ret)
   struct thread *cur = thread_current ();
   struct file *file;
 
-  // search file using fd.
   file = thread_get_file (cur, fd);
 
   if (file == NULL)
     SYS_RETURN (ret, -1);
 
-  // remove file from cur->file_list
   thread_remove_file (cur, file, NULL);
  
   lock_acquire (&filesys_lock);
-  file_close (file);            // problem can be occured when other thread is accessing file.
-                                // this assumes that file structure is accessed by only one thread, not multiple thread.
+  file_close (file);      // problem can be occured when other thread is accessing file.
+                          // this assumes that file structure is accessed by only one thread, not multiple thread.
   lock_release (&filesys_lock);
 }
 
@@ -428,6 +417,7 @@ syscall_tell (void *arg_top, int *ret)
   struct thread *current_thread = thread_current();
   struct file *current_file = thread_get_file (current_thread, fd);
 
+  // no need to synchronize.
   SYS_RETURN (ret, (unsigned)file_tell (current_file));
 }
 
@@ -440,6 +430,7 @@ syscall_filesize (void *arg_top, int *ret)
   struct thread *current_thread = thread_current();
   struct file *current_file = thread_get_file (current_thread, fd);
 
+  // no need to synchronize.
   SYS_RETURN (ret, (int)file_length (current_file));
 }
 
@@ -453,6 +444,7 @@ syscall_seek (void *arg_top, int *ret)
   struct thread *current_thread = thread_current();
   struct file *current_file = thread_get_file (current_thread, fd);
   
+  // no need to synchronize.
   if(current_file)
     file_seek(current_file, (off_t)position);
 }
