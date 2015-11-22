@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -74,7 +75,10 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+
+#ifdef USERPROG
 static int get_avail_fd (struct thread *t);
+#endif
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -614,6 +618,7 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
+#ifdef USERPROG
 /* added by taeguk and coded by younjoon for project 2-2 */
 
 /* get available fd in thread.
@@ -643,14 +648,12 @@ get_avail_fd (struct thread *t)
     return avail_fd;
 }
 
-#ifdef USERPROG
 static bool
 less (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   return list_entry (a, struct file, file_elem)->fd 
     < list_entry (b, struct file, file_elem)->fd;
 }
-#endif
 
 /* add file to thread 
  * return value : true (success), false (fail)
@@ -709,3 +712,4 @@ thread_clear_file_list (struct thread *t, thread_file_action_func *action_func)
         action_func(f, NULL);
     }
 }
+#endif

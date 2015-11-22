@@ -6,8 +6,10 @@
 #include <stdint.h>
 #include "threads/synch.h"
 
+#ifdef USERPROG
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#endif
 
 #ifndef USERPROG
 extern bool thread_prior_aging;
@@ -163,6 +165,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+#ifdef USERPROG
 /* added by taeguk for project 2-2 */
 
 /* Performs some operation on file f, given auxiliary data AUX.
@@ -173,5 +176,6 @@ bool thread_add_file (struct thread *, struct file *);
 struct file *thread_get_file (struct thread *, int);
 void thread_remove_file (struct thread *t, struct file *file, thread_file_action_func *action_func);
 void thread_clear_file_list (struct thread *, thread_file_action_func *);
+#endif
 
 #endif /* threads/thread.h */
