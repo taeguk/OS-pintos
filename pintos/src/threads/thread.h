@@ -100,6 +100,10 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
+    /* added by taeguk for project 1 */
+    int nice;                           /* -20 ~ 20 */
+    int recent_cpu;
+
 #ifdef USERPROG
     /* Using for process. Added by taeguk. */
     bool load_success;
@@ -164,6 +168,11 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+#ifndef USERPROG
+void thread_wake_up (void);
+void thread_aging (void);
+#endif
 
 #ifdef USERPROG
 /* added by taeguk for project 2-2 */

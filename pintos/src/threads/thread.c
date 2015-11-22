@@ -25,6 +25,12 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* added by taeguk for project 1 */
+static int ready_cnt;
+static struct list ready_queue[PRI_MAX+1];
+static int block_cnt;
+static struct list block_queue;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -378,6 +384,7 @@ void
 thread_set_nice (int nice UNUSED) 
 {
   /* Not yet implemented. */
+  // will be implemented by yoonjoon.
 }
 
 /* Returns the current thread's nice value. */
@@ -385,6 +392,7 @@ int
 thread_get_nice (void) 
 {
   /* Not yet implemented. */
+  // will be implemented by yoonjoon.
   return 0;
 }
 
@@ -393,6 +401,7 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
+  // will be implemented by yoonjoon.
   return 0;
 }
 
@@ -401,6 +410,7 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
+  // will be implemented by yoonjoon.
   return 0;
 }
 
@@ -617,6 +627,17 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+#ifndef USERPROG
+void 
+thread_wake_up (void)
+{
+}
+
+void thread_aging (void)
+{
+}
+#endif
 
 #ifdef USERPROG
 /* added by taeguk and coded by younjoon for project 2-2 */
