@@ -104,6 +104,19 @@ struct thread
     int nice;                           /* -20 ~ 20 */
     int recent_cpu;
 
+    bool is_sleeping;
+    int sleep_tick;
+
+#ifndef USERPROG
+    // probably need to more variable(s) to implement aging
+#endif
+
+    /* To younjoon,
+     *  Modifing above thread struct design is allowing to you.
+     *  Be free and proud of our team!
+     *      - from taeguk
+     */
+
 #ifdef USERPROG
     /* Using for process. Added by taeguk. */
     bool load_success;

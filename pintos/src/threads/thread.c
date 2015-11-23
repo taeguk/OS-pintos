@@ -23,14 +23,19 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
+//static struct list ready_list;
 
 /* added by taeguk for project 1 */
-static int ready_cnt;
-static struct list ready_queue[PRI_MAX+1];
-static int block_cnt;
-static struct list block_queue;
 
+/* Multi-level Queue of processes in THREAD_READY state */
+static struct list ready_queue[PRI_MAX+1];
+/* the number of threads in the ready_list. */
+static int ready_cnt;
+
+/* Queue of processes in THREAD_BLOCKED state */
+static struct list block_queue;
+/* the number of threads in the block_list. */
+static int block_cnt;   
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -82,6 +87,8 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+void 
+
 #ifdef USERPROG
 static int get_avail_fd (struct thread *t);
 #endif
@@ -102,10 +109,14 @@ static int get_avail_fd (struct thread *t);
 void
 thread_init (void) 
 {
+  int i=0;
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
-  list_init (&ready_list);
+  //list_init (&ready_list);
+  // modified by taeguk.
+  for (i = PRI_MIN; i <= PRI_MAX; ++i)
+    lock_init (&ready_queue[i]);
   list_init (&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -271,7 +282,10 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  //list_push_back (&ready_list, &t->elem);
+  // modified by taeguk.
+  list_push_back (&ready_queue[t->priority], &t->elem);
+  ++ready_cnt;
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -342,7 +356,9 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    //list_push_back (&ready_list, &cur->elem);
+    // modified by taeguk.
+    list_push_back (&ready_queue[cur->priority], &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -381,7 +397,7 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
   /* Not yet implemented. */
   // will be implemented by yoonjoon.
@@ -402,6 +418,7 @@ thread_get_load_avg (void)
 {
   /* Not yet implemented. */
   // will be implemented by yoonjoon.
+
   return 0;
 }
 
@@ -535,6 +552,7 @@ alloc_frame (struct thread *t, size_t size)
 static struct thread *
 next_thread_to_run (void) 
 {
+  /* must be re-implemented by younjoon */
   if (list_empty (&ready_list))
     return idle_thread;
   else
@@ -566,6 +584,9 @@ thread_schedule_tail (struct thread *prev)
 
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
+
+  //added by taeguk
+  ++ready_cnt;
 
   /* Start new time slice. */
   thread_ticks = 0;
@@ -632,10 +653,12 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 void 
 thread_wake_up (void)
 {
+  /* will be implemented by younjoon */
 }
 
 void thread_aging (void)
 {
+  /* will be implemented by younjoon */
 }
 #endif
 
