@@ -104,14 +104,16 @@ struct thread
     int nice;                           /* -20 ~ 20 */
     int recent_cpu;
 
-    bool is_sleeping;
-    int sleep_tick;
+    int sleep_start_ticks;
+    int sleep_ticks;
 
 #ifndef USERPROG
-    // probably need to more variable(s) to implement aging
+    int creation_ticks;   // ticks on creation of thread.
+    int age;              // age
 #endif
 
-    /* To younjoon,
+    /* 
+     * To younjoon,
      *  Modifing above thread struct design is allowing to you.
      *  Be free and proud of our team!
      *      - from taeguk

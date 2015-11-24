@@ -32,10 +32,10 @@ static struct list ready_queue[PRI_MAX+1];
 /* the number of threads in the ready_list. */
 static int ready_cnt;
 
-/* Queue of processes in THREAD_BLOCKED state */
-static struct list block_queue;
+/* Priority Queue of sleeping processes in THREAD_BLOCKED state */
+static struct list sleep_queue;
 /* the number of threads in the block_list. */
-static int block_cnt;   
+static int sleep_cnt;   
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -86,8 +86,6 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-
-void 
 
 #ifdef USERPROG
 static int get_avail_fd (struct thread *t);
@@ -163,6 +161,12 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+
+  // recalcurate priority of all threads per 4 ticks.
+
+  // increase current thread's recent_cpu 
+  // update all threads' recent_cpu per TIMER_FREQ
+  // must be implemented.
 
 #ifndef USERPROG
   thread_wake_up ();
@@ -529,6 +533,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->self_file = NULL;
   list_init (&t->file_list);
 #endif
+
+  /*
+   * Initilizing thread variables for project-1 must be implemented by younjoon.
+   */
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -654,11 +662,14 @@ void
 thread_wake_up (void)
 {
   /* will be implemented by younjoon */
+  // see sleep_queue
+  //you can do it!
 }
 
 void thread_aging (void)
 {
   /* will be implemented by younjoon */
+  // increase threads' age in ready_queues.
 }
 #endif
 
