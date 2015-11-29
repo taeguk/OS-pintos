@@ -178,6 +178,8 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+
+  printf("[Debug] timer_interrupt()! \n");
   /* added by younjoon */
   thread_wake (timer_ticks ());
   thread_tick ();

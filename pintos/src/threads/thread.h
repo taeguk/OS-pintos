@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include "threads/synch.h"
 
+#include "lib/kernel/real.h"
+
 #ifdef USERPROG
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -102,7 +104,7 @@ struct thread
 
     /* added by taeguk for project 1 */
     int nice;                           /* -20 ~ 20 */
-    int recent_cpu;
+    real recent_cpu;
 
 //  int64_t sleep_start_ticks;
     int64_t sleep_ticks;
@@ -181,12 +183,12 @@ void thread_foreach (thread_action_func *, void *);
 
 int thread_get_priority (void);
 void thread_set_priority (int);
-
+void thread_update_priority (void);
 int thread_get_nice (void);
 void thread_set_nice (int);
-int thread_update_recent_cpu (void);
+void thread_update_recent_cpu (void);
 int thread_get_recent_cpu (void);
-int thread_update_load_avg (void);
+void thread_update_load_avg (void);
 int thread_get_load_avg (void);
 
 #ifndef USERPROG
