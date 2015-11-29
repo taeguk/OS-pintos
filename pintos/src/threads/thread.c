@@ -23,19 +23,21 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-//static struct list ready_list;
+static struct list ready_list;
 
 /* added by taeguk for project 1 */
 
 /* Multi-level Queue of processes in THREAD_READY state */
-static struct list ready_queue[PRI_MAX+1];
+//static struct list ready_queue[PRI_MAX+1];
 /* the number of threads in the ready_list. */
 static int ready_cnt;
-
+static bool thread_less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+ 
 /* Priority Queue of sleeping processes in THREAD_BLOCKED state */
 static struct list sleep_queue;
 /* the number of threads in the block_list. */
 static int sleep_cnt;   
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -111,11 +113,14 @@ thread_init (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
-  //list_init (&ready_list);
+  list_init (&ready_list);
   // modified by taeguk.
-  for (i = PRI_MIN; i <= PRI_MAX; ++i)
-    lock_init (&ready_queue[i]);
+//  for (i = PRI_MIN; i <= PRI_MAX; ++i)
+//    list_init (&ready_queue[i]);
   list_init (&all_list);
+
+  // added by younjoon
+  list_init (&sleep_queue);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -169,8 +174,8 @@ thread_tick (void)
   // must be implemented.
 
 #ifndef USERPROG
-  thread_wake_up ();
-
+ 
+//  thread_wake (); 
   if (thread_prior_aging == true)
     thread_aging ();
 #endif
@@ -250,6 +255,9 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  if (priority > thread_current ()->priority)
+    thread_yield ();
+
   return tid;
 }
 
@@ -286,9 +294,10 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  //list_push_back (&ready_list, &t->elem);
+  list_push_back (&ready_list, &t->elem);
   // modified by taeguk.
-  list_push_back (&ready_queue[t->priority], &t->elem);
+  //list_push_back (&ready_queue[t->priority], &t->elem);
+  //list_insert_ordered (&ready_queue[t->priority], &t->elem, thread_less_priority, NULL);
   ++ready_cnt;
   t->status = THREAD_READY;
   intr_set_level (old_level);
@@ -360,9 +369,10 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    //list_push_back (&ready_list, &cur->elem);
+   list_push_back (&ready_list, &cur->elem);
     // modified by taeguk.
-    list_push_back (&ready_queue[cur->priority], &cur->elem);
+  //  list_push_back (&ready_queue[cur->priority], &cur->elem);
+  //list_insert_ordered (&ready_queue[cur->priority], &cur->elem, thread_less_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -390,6 +400,9 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+ 
+  /* added by younjoon */
+  thread_yield ();
 }
 
 /* Returns the current thread's priority. */
@@ -561,10 +574,34 @@ static struct thread *
 next_thread_to_run (void) 
 {
   /* must be re-implemented by younjoon */
+//  int i=0;
+  enum intr_level old_level;
+
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    {
+      old_level = intr_disable ();
+      list_sort (&ready_list, thread_less_priority, NULL);
+      intr_set_level (old_level);
+
+      return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    }
+  /*
+  if (ready_cnt == 0)
+    return idle_thread;
+  else
+    {
+      for (i = PRI_MAX; i >= PRI_MIN; --i)
+        {
+          if(list_size (&ready_queue[i]) != 0)
+            {
+              ready_cnt--;
+              return list_entry (list_pop_front (&ready_queue[i]), struct thread, elem);
+            }
+        }
+    }
+    */
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -657,19 +694,90 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-#ifndef USERPROG
-void 
-thread_wake_up (void)
+static bool
+thread_less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
-  /* will be implemented by younjoon */
-  // see sleep_queue
-  //you can do it!
+  struct thread *ta = list_entry (a, struct thread, elem);
+  struct thread *tb = list_entry (b, struct thread, elem);
+
+  if (ta->priority > tb->priority)
+    return true;
+  else  
+    return false;
+}
+
+#ifndef USERPROG
+
+/* coded by younjoon */
+static bool
+thread_less_ticks (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+{
+  struct thread *ta = list_entry (a, struct thread, sleep_elem);
+  struct thread *tb = list_entry (b, struct thread, sleep_elem);
+
+  if (ta->sleep_ticks < tb->sleep_ticks)
+    return true;
+  else if (ta->sleep_ticks == tb->sleep_ticks)
+    {
+      if (ta->priority > tb->priority)
+        return true;
+      else
+        return false;
+    }
+  else
+    return false;
+}
+
+void
+thread_sleep (int64_t sleep_ticks)
+{
+  enum intr_level old_level;
+  struct thread *cur = thread_current ();
+
+  old_level = intr_disable ();
+  if (cur->status != THREAD_BLOCKED)
+    {
+      cur->sleep_ticks = sleep_ticks;
+      list_insert_ordered (&sleep_queue, &cur->sleep_elem, thread_less_ticks, NULL);
+      sleep_cnt++;
+      thread_block ();
+    }
+  intr_set_level (old_level);
+}
+
+void 
+thread_wake (int64_t cur_ticks)
+{
+  while (sleep_cnt != 0)
+    {
+      struct list_elem *e = list_front (&sleep_queue);
+      struct thread *cur = list_entry (e, struct thread, sleep_elem);
+      
+      if (cur->sleep_ticks <= cur_ticks)
+        {
+          list_pop_front (&sleep_queue);
+          sleep_cnt--;
+          thread_unblock (cur);
+        }
+      else
+        break;
+    }
 }
 
 void thread_aging (void)
 {
   /* will be implemented by younjoon */
   // increase threads' age in ready_queues.
+  
+  /* added by younjoon, for single level queue */
+  struct list_elem *e;
+
+  for (e = list_begin (&ready_list); e != list_end (&ready_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, elem);
+      t->priority++;
+    }
 }
 #endif
 

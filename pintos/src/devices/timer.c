@@ -92,16 +92,15 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  
-  /*
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
-  */
 
-  /* must be reimplemented by younjoon */
-  // block state
-  // sleep queue <- me
-  // struct thread -> sleep_tick -= sadf
+  /* coded by younjoon. timer_sleep is a wrapper function for thread_sleep */
+  if( ticks > 0 )
+    thread_sleep ( (ticks + start) );
+
+/*
+  while (timer_elapsed (start) < ticks) 
+     thread_yield ();
+*/
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -179,6 +178,8 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  /* added by younjoon */
+  thread_wake (timer_ticks ());
   thread_tick ();
 }
 

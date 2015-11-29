@@ -104,8 +104,11 @@ struct thread
     int nice;                           /* -20 ~ 20 */
     int recent_cpu;
 
-    int sleep_start_ticks;
-    int sleep_ticks;
+//  int64_t sleep_start_ticks;
+    int64_t sleep_ticks;
+
+    /* added by younjoon */
+    struct list_elem sleep_elem; 
 
 #ifndef USERPROG
     int creation_ticks;   // ticks on creation of thread.
@@ -185,7 +188,8 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 #ifndef USERPROG
-void thread_wake_up (void);
+void thread_sleep (int64_t ticks);
+void thread_wake (int64_t cur_ticks);
 void thread_aging (void);
 #endif
 
