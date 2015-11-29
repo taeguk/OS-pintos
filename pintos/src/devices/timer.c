@@ -93,6 +93,9 @@ timer_sleep (int64_t ticks)
 
   ASSERT (intr_get_level () == INTR_ON);
 
+  printf("[Debug] timer_sleep()! \n");
+  PANIC("asdf");
+
   /* coded by younjoon. timer_sleep is a wrapper function for thread_sleep */
   if( ticks > 0 )
     thread_sleep ( (ticks + start) );

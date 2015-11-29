@@ -607,6 +607,8 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
 
+  printf("init_thread() %s!\n", name);
+
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
@@ -630,7 +632,7 @@ init_thread (struct thread *t, const char *name, int priority)
   /*
    * Initilizing thread variables for project-1
    */
-  if (initial_thread)
+  if (t == initial_thread)
     {
       t->nice = 0;
       t->recent_cpu = real_from_int (0);
@@ -842,9 +844,10 @@ thread_sleep (int64_t sleep_ticks)
 void 
 thread_wake (int64_t cur_ticks)
 {
-  printf("[Debug] thread_wake()! %s\n", thread_current()->name);
+  printf("[Debug] thread_wake()! %s %d\n", thread_current()->name, ready_threads);
   while (sleep_cnt != 0)
     {
+      printf("[Debug] sleep_cnt != 0! \n");
       struct list_elem *e = list_front (&sleep_queue);
       struct thread *cur = list_entry (e, struct thread, sleep_elem);
       
