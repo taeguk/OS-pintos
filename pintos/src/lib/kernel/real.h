@@ -1,12 +1,15 @@
 #ifndef __LIB_KERNEL_REAL_H
 #define __LIB_KERNEL_REAL_H
 
+#include <stdint.h>
+
 // will be implemented by taeguk.
 
 typedef int32_t real;
 
 real real_from_int (int32_t n);
 int32_t real_to_int (real x);
+int32_t real_to_int_nearest (real x);
 
 real real_add_rr (real x, real y);
 real real_add_ri (real x, int32_t n);
