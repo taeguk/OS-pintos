@@ -12,6 +12,8 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 
+#include "lib/kernel/real.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -23,14 +25,20 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
+//static struct list ready_list;
+/* the number of threads in the ready_list. */
+static int ready_cnt;
 
 /* added by taeguk for project 1 */
 
+static int load_avg;
+static int recent_cpu;
+
 /* Multi-level Queue of processes in THREAD_READY state */
-//static struct list ready_queue[PRI_MAX+1];
-/* the number of threads in the ready_list. */
-static int ready_cnt;
+static struct list ready_queue[PRI_MAX+1];
+/* the number of threads in the ready queues. */
+static int ready_threads;
+
 static bool thread_less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
  
 /* Priority Queue of sleeping processes in THREAD_BLOCKED state */
@@ -113,10 +121,10 @@ thread_init (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   lock_init (&tid_lock);
-  list_init (&ready_list);
   // modified by taeguk.
-//  for (i = PRI_MIN; i <= PRI_MAX; ++i)
-//    list_init (&ready_queue[i]);
+  //list_init (&ready_list);
+  for (i = PRI_MIN; i <= PRI_MAX; ++i)
+    list_init (&ready_queue[i]);
   list_init (&all_list);
 
   // added by younjoon
@@ -429,14 +437,8 @@ thread_get_nice (void)
   return 0;
 }
 
-/* Returns 100 times the system load average. */
-int
-thread_get_load_avg (void) 
+int thread_update_recent_cpu (void)
 {
-  /* Not yet implemented. */
-  // will be implemented by yoonjoon.
-
-  return 0;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -447,7 +449,20 @@ thread_get_recent_cpu (void)
   // will be implemented by yoonjoon.
   return 0;
 }
-
+
+int thread_update_load_avg (void)
+{
+  real coef1 = 
+  load_avg = real_div_ri(
+}
+
+/* Returns 100 times the system load average. */
+int
+thread_get_load_avg (void) 
+{
+  return 100 * load_avg;
+}
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
