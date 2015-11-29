@@ -160,7 +160,6 @@ void
 thread_tick (void) 
 {
   struct thread *t = thread_current ();
-  enum intr_level old_level;
   int64_t ticks;
 
   /* Update statistics. */
@@ -175,24 +174,29 @@ thread_tick (void)
 
   // recalcurate priority of all threads per 4 ticks.
 
-  old_level = intr_disable ();
 
-  ticks = timer_ticks ();
-
-  t->recent_cpu = real_add_ri (t->recent_cpu, 1);
-
-  if (ticks % TIMER_FREQ == 0)
+  if (thread_mlfqs)
     {
-      thread_update_load_avg ();
-      thread_update_recent_cpu ();
-    }
+      enum intr_level old_level;
+      old_level = intr_disable ();
 
-  if (ticks % TIME_SLICE == 0)
-    {
-      thread_update_priority ();
-    }
+      ticks = timer_ticks ();
+      
+      t->recent_cpu = real_add_ri (t->recent_cpu, 1);
 
-  intr_set_level (old_level);
+      if (ticks % TIMER_FREQ == 0)
+        {
+          thread_update_load_avg ();
+          thread_update_recent_cpu ();
+        }
+
+      if (ticks % TIME_SLICE == 0)
+        {
+          thread_update_priority ();
+        }
+
+      intr_set_level (old_level);
+    }
   
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
