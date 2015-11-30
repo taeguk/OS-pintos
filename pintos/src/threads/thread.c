@@ -44,7 +44,7 @@ static bool thread_less_priority (const struct list_elem *a, const struct list_e
 /* Priority Queue of sleeping processes in THREAD_BLOCKED state */
 static struct list sleep_queue;
 /* the number of threads in the block_list. */
-static int sleep_cnt;   
+static int sleep_cnt = 0;   
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -162,6 +162,8 @@ thread_tick (void)
   struct thread *t = thread_current ();
   int64_t ticks;
 
+  //printf("[Debug] thread_tick() %s\n",t->name);
+
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -248,6 +250,8 @@ thread_create (const char *name, int priority,
   tid_t tid;
   enum intr_level old_level;
 
+  //printf("[Debug] thread_create()! %s, %d\n", name, ready_threads);
+
   ASSERT (function != NULL);
       
   /* Allocate thread. */
@@ -326,6 +330,7 @@ thread_unblock (struct thread *t)
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
+  //printf("[Debug] thread_unblock(%s) %s, %d\n",t->name,thread_current()->name,ready_threads);
   ASSERT (t->status == THREAD_BLOCKED);
   
   //list_push_back (&ready_list, &t->elem);
@@ -334,6 +339,7 @@ thread_unblock (struct thread *t)
   // modified by taeguk.
   if (t != idle_thread)
     {
+      //printf("--------------> priority : %d\n", t->priority);
       list_push_back (&ready_queue[t->priority], &t->elem);
       ++ready_threads;
     }
@@ -383,6 +389,8 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  //printf("[Debug] ********** thread_exit()! <- %s\n", thread_current()->name);
+
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -413,6 +421,8 @@ thread_yield (void)
   // modified by taeguk.
   if (cur != idle_thread)
     {
+      //printf("--------------> priority : %d\n", cur->priority);
+      ++ready_threads;
       list_push_back (&ready_queue[cur->priority], &cur->elem);
       //list_insert_ordered (&ready_queue[cur->priority], &cur->elem, thread_less_priority, NULL);
     }
@@ -611,8 +621,6 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
   ASSERT (name != NULL);
 
-  printf("init_thread() %s!\n", name);
-
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
@@ -673,7 +681,6 @@ next_thread_to_run (void)
 {
   /* must be re-implemented by younjoon */
   //enum intr_level old_level;
-  int i;
 
   /*
   if (list_empty (&ready_list))
@@ -692,15 +699,19 @@ next_thread_to_run (void)
     return idle_thread;
   else
     {
+      int i;
       for (i = PRI_MAX; i >= PRI_MIN; --i)
         {
           if(list_size (&ready_queue[i]) != 0)
             {
               --ready_threads;
+              //printf("asdfasdfasdf%*&$%^*@%#&*#%^*&$%*#\n");
+              //printf("next_thread_to_run is %s !!\n", list_entry (list_front (&ready_queue[i]), struct thread, elem)->name);
               return list_entry (list_pop_front (&ready_queue[i]), struct thread, elem);
             }
         }
     }
+  PANIC("next_thread_to_run");
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -773,6 +784,8 @@ schedule (void)
   if (cur != next)
     prev = switch_threads (cur, next);
   thread_schedule_tail (prev);
+  
+  //printf("*******************next thread is %s, %d, %d!!\n", next->name, ready_threads, sleep_cnt);
 }
 
 /* Returns a tid to use for a new thread. */
@@ -833,10 +846,11 @@ thread_sleep (int64_t sleep_ticks)
   enum intr_level old_level;
   struct thread *cur = thread_current ();
 
-  printf("[Debug] thread_sleep()! \n");
   old_level = intr_disable ();
-  if (cur->status != THREAD_BLOCKED)
+  //printf("[Debug] ############# thread_sleep()! %s, %d\n", cur->name, ready_threads);
+  //if (cur->status != THREAD_BLOCKED)
     {
+      //printf("[Debug] sleep cnt %d\n",sleep_cnt);
       cur->sleep_ticks = sleep_ticks;
       list_insert_ordered (&sleep_queue, &cur->sleep_elem, thread_less_ticks, NULL);
       sleep_cnt++;
@@ -848,15 +862,18 @@ thread_sleep (int64_t sleep_ticks)
 void 
 thread_wake (int64_t cur_ticks)
 {
-  printf("[Debug] thread_wake()! %s %d\n", thread_current()->name, ready_threads);
+  //printf("\n[Debug] thread_wake()! %s rt(%d) sc(%d)\n", thread_current()->name, ready_threads, sleep_cnt);
   while (sleep_cnt != 0)
     {
-      printf("[Debug] sleep_cnt != 0! \n");
+      //printf("[Debug] sleep_cnt != 0! \n");
       struct list_elem *e = list_front (&sleep_queue);
       struct thread *cur = list_entry (e, struct thread, sleep_elem);
+
+      //printf("~~~~~~~~~~~~~~~~~~~~~ %lld %lld\n", cur->sleep_ticks, cur_ticks);
       
       if (cur->sleep_ticks <= cur_ticks)
         {
+          //printf("[Debug] @@@@@@@@@@@@@@ wake %s!!\n", cur->name);
           list_pop_front (&sleep_queue);
           sleep_cnt--;
           thread_unblock (cur);
