@@ -25,7 +25,7 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-//static struct list ready_list;
+static struct list ready_list;
 /* the number of threads in the ready_list. */
 static int ready_cnt;
 
@@ -35,9 +35,9 @@ static int load_avg;
 static int recent_cpu;
 
 /* Multi-level Queue of processes in THREAD_READY state */
-static struct list ready_queue[PRI_MAX+1];
+//static struct list ready_queue[PRI_MAX+1];
 /* the number of threads in the ready queues. */
-static int ready_threads;
+//static int ready_threads;
 
 static bool thread_less_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
  
@@ -122,9 +122,9 @@ thread_init (void)
 
   lock_init (&tid_lock);
   // modified by taeguk.
-  //list_init (&ready_list);
-  for (i = PRI_MIN; i <= PRI_MAX; ++i)
-    list_init (&ready_queue[i]);
+  list_init (&ready_list);
+//  for (i = PRI_MIN; i <= PRI_MAX; ++i)
+//    list_init (&ready_queue[i]);
   list_init (&all_list);
 
   // added by younjoon
@@ -306,7 +306,7 @@ thread_unblock (struct thread *t)
   // modified by taeguk.
   //list_push_back (&ready_queue[t->priority], &t->elem);
   //list_insert_ordered (&ready_queue[t->priority], &t->elem, thread_less_priority, NULL);
-  ++ready_cnt;
+  //++ready_cnt;
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -452,8 +452,8 @@ thread_get_recent_cpu (void)
 
 int thread_update_load_avg (void)
 {
-  real coef1 = 
-  load_avg = real_div_ri(
+//  real coef1 = 
+//  load_avg = real_div_ri(
 }
 
 /* Returns 100 times the system load average. */
@@ -646,7 +646,7 @@ thread_schedule_tail (struct thread *prev)
   cur->status = THREAD_RUNNING;
 
   //added by taeguk
-  ++ready_cnt;
+  //++ready_cnt;
 
   /* Start new time slice. */
   thread_ticks = 0;
