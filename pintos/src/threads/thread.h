@@ -106,23 +106,10 @@ struct thread
     int nice;                           /* -20 ~ 20 */
     real recent_cpu;
 
-//  int64_t sleep_start_ticks;
     int64_t sleep_ticks;
 
     /* added by younjoon */
     struct list_elem sleep_elem; 
-
-#ifndef USERPROG
-    int creation_ticks;   // ticks on creation of thread.
-    int age;              // age
-#endif
-
-    /* 
-     * To younjoon,
-     *  Modifing above thread struct design is allowing to you.
-     *  Be free and proud of our team!
-     *      - from taeguk
-     */
 
 #ifdef USERPROG
     /* Using for process. Added by taeguk. */

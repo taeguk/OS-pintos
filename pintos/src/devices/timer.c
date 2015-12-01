@@ -50,7 +50,6 @@ timer_calibrate (void)
 
   /* Approximate loops_per_tick as the largest power-of-two
      still less than one timer tick. */
-  int i = 0;
   loops_per_tick = 1u << 10;
   while (!too_many_loops (loops_per_tick << 1)) 
     {
@@ -94,17 +93,13 @@ timer_sleep (int64_t ticks)
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  //printf("[Debug] timer_sleep()! \n");
-
-  /* coded by younjoon. timer_sleep is a wrapper function for thread_sleep */
-
+#ifndef USERPROG
   if( ticks > 0 )
     thread_sleep ( (ticks + start) );
-
-/*
+#else
   while (timer_elapsed (start) < ticks) 
      thread_yield ();
-*/
+#endif
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -185,7 +180,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
 
   //printf("\n[Debug] timer_interrupt()! %d\n", ticks);
   /* added by younjoon */
-  thread_wake (timer_ticks ());
+  //thread_wake (timer_ticks ());
   thread_tick ();
 }
 

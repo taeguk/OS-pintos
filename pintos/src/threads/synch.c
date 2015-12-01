@@ -81,8 +81,6 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      //list_push_back (&sema->waiters, &thread_current ()->elem);
-    
       /* modified by younjoon */
       list_insert_ordered (&sema->waiters, &thread_current ()->elem, sema_less_priority, NULL);
       thread_block ();
@@ -136,7 +134,9 @@ sema_up (struct semaphore *sema)
 
   /* added by younjoon */
   //possible preemption!
+#ifndef USERPROG
   thread_yield ();
+#endif
   intr_set_level (old_level); 
 }
 
