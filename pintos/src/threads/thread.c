@@ -176,11 +176,12 @@ thread_tick (void)
 
   // recalcurate priority of all threads per 4 ticks.
 
-
   if (thread_mlfqs)
     {
       enum intr_level old_level;
       old_level = intr_disable ();
+
+      //printf("[Debug] thread_tick() mlfqs!!!! %s, %d\n", t->name, ready_threads);
 
       ticks = timer_ticks ();
       
@@ -188,12 +189,14 @@ thread_tick (void)
 
       if (ticks % TIMER_FREQ == 0)
         {
+          printf("[Debug] TIMER_FREQ, cur thread : %s, rt : %d\n", thread_current()->name, ready_threads);
           thread_update_load_avg ();
           thread_update_recent_cpu ();
         }
 
       if (ticks % TIME_SLICE == 0)
         {
+          //printf("[Debug] TIMER_SLICE\n");
           thread_update_priority ();
         }
 
@@ -204,6 +207,7 @@ thread_tick (void)
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 
+  //PANIC("adsf");
   // increase current thread's recent_cpu 
   // update all threads' recent_cpu per TIMER_FREQ
   // must be implemented.
@@ -250,7 +254,7 @@ thread_create (const char *name, int priority,
   tid_t tid;
   enum intr_level old_level;
 
-  //printf("[Debug] thread_create()! %s, %d\n", name, ready_threads);
+  printf("[Debug] thread_create()! %s, %d\n", name, ready_threads);
 
   ASSERT (function != NULL);
       
@@ -416,6 +420,7 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+  //printf("[*] thread_yield()! %s, %d\n",cur->name, ready_threads);
   //if (cur != idle_thread) 
   // list_push_back (&ready_list, &cur->elem);
   // modified by taeguk.
@@ -423,11 +428,15 @@ thread_yield (void)
     {
       //printf("--------------> priority : %d\n", cur->priority);
       ++ready_threads;
+      // insert twice...:( already inserted... :(
       list_push_back (&ready_queue[cur->priority], &cur->elem);
+      //printf("---------------> rt : %d\n", ready_threads);
       //list_insert_ordered (&ready_queue[cur->priority], &cur->elem, thread_less_priority, NULL);
     }
   cur->status = THREAD_READY;
+  //PANIC("------------ hahaha ----------");
   schedule ();
+  //PANIC("------------ hahaha ----------");
   intr_set_level (old_level);
 }
 
@@ -469,10 +478,15 @@ void thread_update_priority (void)
 {
   struct list_elem *e;
 
+
   for (e = list_begin (&all_list); e != list_end (&all_list);
      e = list_next (e))
   {
     struct thread *t = list_entry (e, struct thread, allelem);
+    int old_priority = t->priority;
+
+    if (t == idle_thread)
+      continue;
 
     // can be problem...20% probablility
     t->priority = PRI_MAX - real_to_int_nearest (real_div_ri (t->recent_cpu, 4))
@@ -483,8 +497,12 @@ void thread_update_priority (void)
     else if (t->priority < PRI_MIN)
       t->priority = PRI_MIN;
 
-    list_remove (&t->elem);
-    list_push_back (&ready_queue[t->priority], &t->elem);
+    if (t->status == THREAD_READY)
+      {
+        list_remove (&t->elem);
+        list_push_back (&ready_queue[t->priority], &t->elem);
+      }
+    //printf("[*] %s's priority : %d -> %d\n", t->name, old_priority, t->priority);
   }
 }
 
@@ -512,7 +530,9 @@ void thread_update_recent_cpu (void)
      e = list_next (e))
   {
     struct thread *t = list_entry (e, struct thread, allelem);
+    real old_recent_cpu = t->recent_cpu;
     t->recent_cpu = real_add_ri (real_mul_rr (expr1, t->recent_cpu), t->nice);
+    printf("[*] %s's recent_cpu : %d -> %d\n", t->name, old_recent_cpu, t->recent_cpu);
   }
 }
 
@@ -527,11 +547,14 @@ thread_get_recent_cpu (void)
 
 void thread_update_load_avg (void)
 {
+  real old_load_avg = load_avg;
   real coef1 = real_div_ri (real_from_int (59), 60);
   real coef2 = real_div_ri (real_from_int (1), 60);
   load_avg = real_add_rr (
                 real_mul_rr (coef1, load_avg), 
                 real_mul_ri (coef2, ready_threads) );
+  printf("[I] %d, %d, la : %d, rt : %d\n", coef1, coef2, load_avg, ready_threads);
+  printf("[*] load_avg : %d -> %d\n", old_load_avg, load_avg);
 }
 
 /* Returns 100 times the system load average. */
@@ -705,6 +728,7 @@ next_thread_to_run (void)
           if(list_size (&ready_queue[i]) != 0)
             {
               --ready_threads;
+             //ASSERT(list_entry (list_front (&ready_queue[i]), struct thread, elem)->priority != 62); 
               //printf("asdfasdfasdf%*&$%^*@%#&*#%^*&$%*#\n");
               //printf("next_thread_to_run is %s !!\n", list_entry (list_front (&ready_queue[i]), struct thread, elem)->name);
               return list_entry (list_pop_front (&ready_queue[i]), struct thread, elem);
