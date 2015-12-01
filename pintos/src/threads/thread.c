@@ -77,6 +77,7 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 
 #ifndef USERPROG
+#define AGING_TICKS 100
 bool thread_prior_aging;
 #endif
 
@@ -129,6 +130,7 @@ thread_init (void)
 
   // added by younjoon
   list_init (&sleep_queue);
+  load_avg = real_from_int (0);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -160,7 +162,7 @@ void
 thread_tick (void) 
 {
   struct thread *t = thread_current ();
-  int64_t ticks;
+  int64_t ticks = timer_ticks ();
 
   //printf("[Debug] thread_tick() %s\n",t->name);
 
@@ -183,13 +185,11 @@ thread_tick (void)
 
       //printf("[Debug] thread_tick() mlfqs!!!! %s, %d\n", t->name, ready_threads);
 
-      ticks = timer_ticks ();
-      
       t->recent_cpu = real_add_ri (t->recent_cpu, 1);
 
       if (ticks % TIMER_FREQ == 0)
         {
-          printf("[Debug] TIMER_FREQ, cur thread : %s, rt : %d\n", thread_current()->name, ready_threads);
+          //printf("[Debug] TIMER_FREQ, cur thread : %s, rt : %d\n", thread_current()->name, ready_threads);
           thread_update_load_avg ();
           thread_update_recent_cpu ();
         }
@@ -203,6 +203,12 @@ thread_tick (void)
       intr_set_level (old_level);
     }
   
+#ifndef USERPROG
+  //thread_wake (ticks); 
+  if (thread_prior_aging == true && ticks % AGING_TICKS == 0)
+    thread_aging ();
+#endif
+
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -211,13 +217,6 @@ thread_tick (void)
   // increase current thread's recent_cpu 
   // update all threads' recent_cpu per TIMER_FREQ
   // must be implemented.
-
-#ifndef USERPROG
- 
-  //thread_wake (ticks); 
-  if (thread_prior_aging == true)
-    thread_aging ();
-#endif
 }
 
 /* Prints thread statistics. */
@@ -254,7 +253,7 @@ thread_create (const char *name, int priority,
   tid_t tid;
   enum intr_level old_level;
 
-  printf("[Debug] thread_create()! %s, %d\n", name, ready_threads);
+  //printf("[Debug] thread_create()! %s, %d\n", name, ready_threads);
 
   ASSERT (function != NULL);
       
@@ -489,7 +488,8 @@ void thread_update_priority (void)
       continue;
 
     // can be problem...20% probablility
-    t->priority = PRI_MAX - real_to_int_nearest (real_div_ri (t->recent_cpu, 4))
+    //t->priority = PRI_MAX - real_to_int_nearest (real_div_ri (t->recent_cpu, 4))
+    t->priority = PRI_MAX - real_to_int_nearest (t->recent_cpu) / 4
                     - (t->nice * 2);
 
     if (t->priority > PRI_MAX)
@@ -532,7 +532,7 @@ void thread_update_recent_cpu (void)
     struct thread *t = list_entry (e, struct thread, allelem);
     real old_recent_cpu = t->recent_cpu;
     t->recent_cpu = real_add_ri (real_mul_rr (expr1, t->recent_cpu), t->nice);
-    printf("[*] %s's recent_cpu : %d -> %d\n", t->name, old_recent_cpu, t->recent_cpu);
+    //printf("[*] %s's recent_cpu : %d -> %d\n", t->name, old_recent_cpu, t->recent_cpu);
   }
 }
 
@@ -552,9 +552,9 @@ void thread_update_load_avg (void)
   real coef2 = real_div_ri (real_from_int (1), 60);
   load_avg = real_add_rr (
                 real_mul_rr (coef1, load_avg), 
-                real_mul_ri (coef2, ready_threads) );
-  printf("[I] %d, %d, la : %d, rt : %d\n", coef1, coef2, load_avg, ready_threads);
-  printf("[*] load_avg : %d -> %d\n", old_load_avg, load_avg);
+                real_mul_ri (coef2, ready_threads + (thread_current () == idle_thread ? 0 : 1)) );
+  //printf("[I] %d, %d, la : %d, rt : %d\n", coef1, coef2, load_avg, ready_threads);
+  //printf("[*] load_avg : %d -> %d\n", old_load_avg, load_avg);
 }
 
 /* Returns 100 times the system load average. */
@@ -912,6 +912,8 @@ void thread_aging (void)
   /* will be implemented by younjoon */
   // increase threads' age in ready_queues.
   
+  //printf("thread_aging ()!\n\n");
+  
   /* added by younjoon, for single level queue */
   struct list_elem *e;
 
@@ -919,7 +921,12 @@ void thread_aging (void)
        e = list_next (e))
     {
       struct thread *t = list_entry (e, struct thread, allelem);
+
+      if (t->status != THREAD_READY)
+        continue;
+
       ++t->priority;
+
       if (t->priority > PRI_MAX)
         {
           t->priority = PRI_MAX;
