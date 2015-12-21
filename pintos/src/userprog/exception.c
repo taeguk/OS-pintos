@@ -148,6 +148,7 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
   
+  // if fault from kernel space, thread_exit.
   if (!user)
     {
       // problems...
@@ -163,6 +164,19 @@ page_fault (struct intr_frame *f)
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
           user ? "user" : "kernel");
+  
+  // if writing r/o page, thread_exit.
+  if (!not_present)
+    {
+      thread_exit ();
+      return;
+    }
+  else
+    {
+      // do something!
+      // 1. get empty frame! (if not available frame, swapping!)
+      // 2. do some!
+    }
 
-  kill (f);
+  //kill (f);
 }

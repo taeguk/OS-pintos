@@ -623,6 +623,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->file_list);
 #endif
 
+#ifdef VM
+  list_init (&t->suppage_list);
+#endif
+
   /* Initilizing thread variables for project-1 */
   if (t == initial_thread)
     {

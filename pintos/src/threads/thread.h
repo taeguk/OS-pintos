@@ -136,6 +136,13 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
+#ifdef VM
+    /* added by taeguk */
+    struct list suppage_list;       /* Supplemental page table */
+    struct lock spl_lock;           /* Lock for suppage_list */
+    //struct semaphore pf_sema;       /* Synchronization of Page faults */
+#endif
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

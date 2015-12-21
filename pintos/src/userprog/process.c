@@ -20,6 +20,8 @@
 
 #include "threads/malloc.h"
 
+#include "vm/suppage.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -228,6 +230,10 @@ process_exit (void)
       file_close (cur->self_file);
       lock_release (&filesys_lock);
     }
+
+#ifdef VM
+  suppage_clear ();
+#endif
 
   printf ("%s: exit(%d)\n", cur->name, cur->exit_code);
 
