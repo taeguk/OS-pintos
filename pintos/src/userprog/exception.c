@@ -179,6 +179,7 @@ page_fault (struct intr_frame *f)
           }
     }
 
+  /*
   void *kpage, *upage = PHYS_BASE - PGSIZE;
   size_t pages_to_be_allocated = (PHYS_BASE - pg_round_down (fault_addr)) / PGSIZE - 1;
 
@@ -190,22 +191,32 @@ page_fault (struct intr_frame *f)
           pages_to_be_allocated--;
         }
     }
+  */
 
-  for (upage = pg_round_down (fault_addr); pages_to_be_allocated > 0; --pages_to_be_allocated, upage += PGSIZE)
+  void *kpage, *upage;
+  size_t pages_to_be_allocated = (PHYS_BASE - pg_round_down (fault_addr)) / PGSIZE;
+  size_t allocated_stack_pages = thread_current ()->allocated_stack_pages;
+
+  pages_to_be_allocated -= allocated_stack_pages;
+  if(pages_to_be_allocated > 0) 
     {
-      if ((kpage = palloc_get_page (PAL_USER | PAL_ZERO)) != NULL)
+      thread_current ()->allocated_stack_pages += pages_to_be_allocated;
+      for (upage = pg_round_down (fault_addr); pages_to_be_allocated > 0; --pages_to_be_allocated, upage += PGSIZE)
         {
-          if (!pagedir_set_page (thread_current ()->pagedir, upage, kpage, true))
+          if ((kpage = palloc_get_page (PAL_USER | PAL_ZERO)) != NULL)
             {
-              printf ("pagedir_set_page error\n");
+              if (!pagedir_set_page (thread_current ()->pagedir, upage, kpage, true))
+                {
+                  printf ("pagedir_set_page error\n");
+                  kill(f);
+                }
+            }
+          else
+            {
+              printf ("palloc_get_page error\n");
               kill(f);
             }
-        }
-      else
-        {
-          printf ("palloc_get_page error\n");
-          kill(f);
-        }
+        } 
     }
   
 
