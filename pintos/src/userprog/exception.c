@@ -151,32 +151,32 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-#ifdef VM
-  
+
   if (!user)
     {
       /* access by kernel */
       thread_exit ();
       return;
     } 
+#ifdef VM
   else 
     { 
       /* access by user */
-        if(!not_present) 
-          {
-            /* writing r/o page */
-            thread_exit ();
-            return;
-          }
-        else
-          {
-            if(!write)
-              {
-                /* read non-present page */
-                thread_exit ();
-                return;
-              }
-          }
+      if(!not_present) 
+        {
+          /* writing r/o page */
+          thread_exit ();
+          return;
+        }
+      else
+        {
+          if(!write)
+            {
+              /* read non-present page */
+              thread_exit ();
+              return;
+            }
+        }
     }
 
   /*
@@ -197,7 +197,11 @@ page_fault (struct intr_frame *f)
   size_t pages_to_be_allocated = (PHYS_BASE - pg_round_down (fault_addr)) / PGSIZE;
   size_t allocated_stack_pages = thread_current ()->allocated_stack_pages;
 
+  if (pages_to_be_allocated > MAX_PAGE_COUNT)
+    thread_exit ();
+  
   pages_to_be_allocated -= allocated_stack_pages;
+  
   if(pages_to_be_allocated > 0) 
     {
       thread_current ()->allocated_stack_pages += pages_to_be_allocated;
@@ -219,6 +223,7 @@ page_fault (struct intr_frame *f)
         } 
     }
   
+#endif
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
@@ -233,5 +238,4 @@ page_fault (struct intr_frame *f)
   kill (f);
   */
 
-#endif
 }
