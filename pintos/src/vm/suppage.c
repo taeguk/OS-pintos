@@ -9,7 +9,7 @@ struct suppage *suppage_search (void *vaddr)
 /* Add suppage to current thread's supplemental page table. */
 bool suppage_add (void *vaddr)
 {
-  // 1. get uaddr (= vaddr's page alignment address).
+  // 1. get upage (= vaddr's page alignment address).
   // 2. call palloc_get_page(PAL_USER) 
   // 2-1. if success, create frame and add it to frame list.
   // 2-2. if fails, do eviction (use functions of frame.h).

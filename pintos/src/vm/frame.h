@@ -28,7 +28,7 @@ bool frame_evict (struct frame *);
 /* Add frame to frame list. */
 void frame_add (struct frame *);
 
-/* Delete a frame from frame list. */
-void frame_delete (struct frame *);
+/* Delete and free a frame from frame list. */
+void frame_free (struct frame *);
 
 #endif /* vm/frame.h */ 

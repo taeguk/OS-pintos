@@ -7,8 +7,8 @@
 
 struct suppage
   {
-    void *uaddr;            // user page = vaddr.
-    struct frame *frame;    // frame. not allocated to frame if NULL.
+    void *upage;            // user page = vaddr.
+    struct frame *frame;    // mapped frame. not mapped to frame if NULL.
     /* will be added more. */
 
     struct list_elem elem;  // for supplemental page table.
