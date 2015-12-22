@@ -275,6 +275,11 @@ thread_create (const char *name, int priority,
   list_push_back (&thread_current()->child_list, (struct list_elem *) &t->child_elem);
 #endif
 
+#ifdef VM
+  t->allocated_stack_pages = 1;
+#endif 
+
+
   /* Add to run queue. */
   thread_unblock (t);
 
