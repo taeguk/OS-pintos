@@ -16,23 +16,11 @@ struct frame *frame_find_eviction (void)
 }
 
 /* Evict a frame. */
-bool frame_evict (struct frame *frame)
+static bool frame_evict (struct frame *frame)
 {
   // 1. evict a frame to swap list.
   // 1-1. if success, return true.
   // 1-2. if fails, return false.
-}
-
-/* Add frame to frame list. */
-void frame_add (struct frame *)
-{
-  // do!
-}
-
-/* Delete and free a frame from frame list. */
-void frame_free (struct frame *frame)
-{
-  // palloc_free_page to kpage.
 }
 
 /* Mapping upage to frame */
@@ -43,4 +31,11 @@ bool frame_map (struct suppage *suppage)
   // 1-2. if fails, do eviction.
   // 1-2-1. if eviction success, do (1) one more.
   // 1-2-2. if eviction fails, return false.
+}
+
+/* Unmap a frame from frame list. */
+void frame_unmap (struct frame *frame)
+{
+  // palloc_free_page to kpage.
+  // free frame.
 }

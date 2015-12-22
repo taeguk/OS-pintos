@@ -20,18 +20,15 @@ struct frame
 void frame_init (void);
 
 /* Find a frame to evict. Use dirty and accessed bits. */
-struct frame *frame_find_eviction (void);
+//struct frame *frame_find_eviction (void);
 
 /* Evict a frame. */
 bool frame_evict (struct frame *);
 
-/* Add frame to frame list. */
-void frame_add (struct frame *);
-
-/* Delete and free a frame from frame list. */
-void frame_free (struct frame *);
+/* Unmap a frame from frame list. */
+void frame_unmap (struct frame *);
 
 /* Mapping upage to frame */
-void frame_map (struct suppage *);
+bool frame_map (struct suppage *);
 
 #endif /* vm/frame.h */ 
