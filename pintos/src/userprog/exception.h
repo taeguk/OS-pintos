@@ -7,7 +7,8 @@
 #define PF_U 0x4    /* 0: kernel, 1: user process. */
 
 #ifdef VM
-#define MAX_PAGE_COUNT 2048
+#define MAX_STACK_PAGES 2048
+#define STACK_TOP_ADDR  (void *) (PHYS_BASE - MAX_STACK_PAGES * PGSIZE)
 #endif
 
 void exception_init (void);

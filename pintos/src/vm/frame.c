@@ -29,11 +29,10 @@ void frame_add (struct frame *)
   // do!
 }
 
-/* Delete a frame from frame list. */
-void frame_delete (struct frame *frame)
+/* Delete and free a frame from frame list. */
+void frame_free (struct frame *frame)
 {
   // palloc_free_page to kpage.
-  // * not call free(frame).
 }
 
 /* Mapping upage to frame */
