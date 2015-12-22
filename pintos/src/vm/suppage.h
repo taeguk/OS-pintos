@@ -15,12 +15,12 @@ struct suppage
   };
 
 /* Search suppage by vaddr in current thread's supplemental page table. */
-struct suppage *suppage_search (void *vaddr); 
-
-/* Add suppage to current thread's supplemental page table. */
-bool suppage_add (void *vaddr);
+//struct suppage *suppage_search (void *vaddr); 
 
 /* Clear current thread's supplemental page table */
 void suppage_clear (void);
+
+/* Allocate upage to current thread. */
+bool suppage_alloc (void *vaddr);
 
 #endif /* vm/suppage.h */ 

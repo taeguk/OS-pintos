@@ -31,4 +31,7 @@ void frame_add (struct frame *);
 /* Delete a frame from frame list. */
 void frame_delete (struct frame *);
 
+/* Mapping upage to frame */
+void frame_map (struct suppage *);
+
 #endif /* vm/frame.h */ 

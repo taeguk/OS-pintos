@@ -35,3 +35,13 @@ void frame_delete (struct frame *frame)
   // palloc_free_page to kpage.
   // * not call free(frame).
 }
+
+/* Mapping upage to frame */
+bool frame_map (struct suppage *suppage)
+{
+  // 1. call palloc_get_page(PAL_USER) 
+  // 1-1. if success, create frame and add it to frame list.
+  // 1-2. if fails, do eviction.
+  // 1-2-1. if eviction success, do (1) one more.
+  // 1-2-2. if eviction fails, return false.
+}
