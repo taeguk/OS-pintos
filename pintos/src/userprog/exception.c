@@ -151,10 +151,17 @@ page_fault (struct intr_frame *f)
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
+  printf ("page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
+
 
   if (!user)
     {
       /* access by kernel */
+      printf("access by kernel\n");
       thread_exit ();
       return;
     } 
@@ -162,20 +169,25 @@ page_fault (struct intr_frame *f)
   else 
     { 
       /* access by user */
+      printf("access by user\n");
       if(!not_present) 
         {
           /* writing r/o page */
+          printf("writing r/o page\n");
           thread_exit ();
           return;
         }
       else
         {
+          printf("non-present page\n");
           if(!write)
             {
               /* read non-present page */
+              printf("reading non-present page\n");
               thread_exit ();
               return;
             }
+          printf("writing non-present page\n");
         }
     }
 
@@ -192,7 +204,7 @@ page_fault (struct intr_frame *f)
         }
     }
   */
-
+  printf("flag check complete\n");
   void *kpage, *upage;
   size_t pages_to_be_allocated = (PHYS_BASE - pg_round_down (fault_addr)) / PGSIZE;
   size_t allocated_stack_pages = thread_current ()->allocated_stack_pages;
@@ -223,13 +235,14 @@ page_fault (struct intr_frame *f)
         } 
     }
   
+      printf("access by kernel\n");
 #endif
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. 
 
-  printf ("Page fault at %p: %s error %s page in %s context.\n",
+  printf ("page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
           write ? "writing" : "reading",
