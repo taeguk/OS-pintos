@@ -61,82 +61,6 @@ static bool frame_evict (struct frame *frame)
   free (frame);
 }
 
-static bool frame_eviction (void)
-{
-  struct frame *frame;
-
-  frame = frame_find_eviction ();
-  if (frame == NULL)
-
-    return false;
-
-  return frame_evict (frame);
-}
-
-/* Evict a frame. */
-static bool frame_evict (struct frame *frame)
-{
-  if (!swap_store (frame))
-    return false;
-
-  frame->suppage->frame = NULL;
-  frame_unmap (frame);
-}
-
-/* Find a frame to evict. Use dirty and accessed bits. */
-static struct frame *frame_find_eviction (void)
-{
-  /* 
-    find a frame to evict.
-
-    1st loop, set accessed bits to 0
-    2nd loop, find a frame to evict.
-    
-    Priority List
-    (accessed bit, dirty bit) / state
-    ---------------------------------
-    #1 (0, 0) / state = 1, neither recently used nor modified
-    #2 (0, 1) / state = 2, not recen 
-
-
-
-  /*t
-  frame->suppage->frame = NULL;
-  frame_unmap (frame);
-}
-
-/* Find a frame to evict. Use dirty and accessed bits. */
-static struct frame *frame_find_eviction (void)
-{
-  /* 
-    find a frame to evict.
-
-    1st loop, set accessed bits to 0
-    2nd loop, find a frame to evict.
-    
-    Priority List
-    (accessed bit, dirty bit) / state
-    ---------------------------------
-    #1 (0, 0) / state = 1, neither recently used nor modified
-    #2 (0, 1) / state = 2, not recen 
-
-
-
-  /*t
-
-  list_push_back (&frame_list, &frame->elem);
-
-  if (load_from_swap && !swap_load (frame))
-    {
-      frame_unmap (frame);
-      return false;
-    }
-
-  suppage->frame = frame;
-
-  return true;
-}
-
 /* Unmap a frame from frame list. */
 void frame_unmap (struct frame *frame)
 {
@@ -147,28 +71,6 @@ void frame_unmap (struct frame *frame)
   free (frame);
 }
 
-static bool frame_eviction (void)
-{
-  struct frame *frame;
-
-  frame = frame_find_eviction ();
-  if (frame == NULL)
-
-    return false;
-
-  return frame_evict (frame);
-}
-
-/* Evict a frame. */
-static bool frame_evict (struct frame *frame)
-{
-  if (!swap_store (frame))
-    return false;
-
-  frame->suppage->frame = NULL;
-  frame_unmap (frame);
-}
-
 /* Find a frame to evict. Use dirty and accessed bits. */
 static struct frame *frame_find_eviction (void)
 {
@@ -182,11 +84,7 @@ static struct frame *frame_find_eviction (void)
     (accessed bit, dirty bit) / state
     ---------------------------------
     #1 (0, 0) / state = 1, neither recently used nor modified
-    #2 (0, 1) / state = 2, not recen 
-
-
-
-  /*tly used but modified
+    #2 (0, 1) / state = 2, not recently used but modified
     #3 (1, 0) / state = 3, recently used but clean
     #4 (1, 1) / state = 4, recently used and modified
   */
