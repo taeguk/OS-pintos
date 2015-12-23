@@ -7,6 +7,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/palloc.h"
+#include "vm/suppage.h"
+#include "vm/frame.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -159,27 +161,45 @@ page_fault (struct intr_frame *f)
       return;
     } 
 #else
-  if (!user || !not_present || !write || fault_addr < PHYS_BASE)
+
+  if (!not_present || fault_addr >= PHYS_BASE)
     {
       thread_exit ();
       return;
     }
 
-  /* not present, write, user */
-
-  if (STACK_TOP_ADDR > fault_addr)
+  /* general page fault */
+  if (MAX_STACK_TOP_ADDR > fault_addr)
     {
-      /* general paging */
-      if(!suppage_add (fault_addr))
+      struct suppage *suppage;
+
+      if ((suppage = suppage_search (fault_addr)) == NULL)
         {
+          printf ("No allocated page\n");
+          thread_exit ();
+          return;
+        }
+
+      if (write && !suppage->writable)
+        {
+          printf ("No writable page!\n");
+          thread_exit ();
+          return;
+        }
+
+      ASSERT (suppage->frame == NULL);
+     
+      if (!frame_map (suppage, true))
+        {
+          printf ("Not available capacity in swap disk.\n");
           thread_exit ();
           return;
         }
     }
+  /* stack growth */
   else
     {
-      /* stack growth */
-      void *kpage, *upage;
+      void *upage;
       size_t pages_to_be_allocated = (PHYS_BASE - pg_round_down (fault_addr)) / PGSIZE;
       size_t allocated_stack_pages = thread_current ()->allocated_stack_pages;
 
@@ -190,7 +210,7 @@ page_fault (struct intr_frame *f)
           thread_current ()->allocated_stack_pages += pages_to_be_allocated;
           for (upage = pg_round_down (fault_addr); pages_to_be_allocated > 0; --pages_to_be_allocated, upage += PGSIZE)
             {
-              if (!suppage_add (upage))
+              if (!suppage_alloc (upage, true))
                 {
                   thread_exit ();
                   return;
@@ -198,7 +218,6 @@ page_fault (struct intr_frame *f)
             } 
         }
     }
-
   
 #endif
 

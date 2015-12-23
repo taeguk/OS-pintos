@@ -8,7 +8,7 @@
 
 #ifdef VM
 #define MAX_STACK_PAGES 2048
-#define STACK_TOP_ADDR  (void *) (PHYS_BASE - MAX_STACK_PAGES * PGSIZE)
+#define MAX_STACK_TOP_ADDR  (void *) (PHYS_BASE - MAX_STACK_PAGES * PGSIZE)
 #endif
 
 void exception_init (void);

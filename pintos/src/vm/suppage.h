@@ -9,6 +9,7 @@ struct suppage
   {
     void *upage;            // user page = vaddr.
     struct frame *frame;    // mapped frame. not mapped to frame if NULL.
+    struct thread *owner;
     bool writable;
     /* will be added more. */
 

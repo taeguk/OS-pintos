@@ -630,6 +630,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+#ifndef VM
       /* Get a page of memory. */
       uint8_t *knpage = palloc_get_page (PAL_USER);
       if (knpage == NULL)
@@ -649,6 +650,19 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           palloc_free_page (knpage);
           return false; 
         }
+#else
+      /* Allocate page */
+      if (!suppage_alloc (upage, writable))
+        return false;
+      
+      /* Load this page */
+      if (file_read (file, upage, page_read_bytes) != (int) page_read_bytes)
+        {
+          suppage_dealloc (upage);
+          return false;
+        }
+      memset (upage + page_read_bytes, 0, page_zero_bytes);
+#endif
 
       /* Advance. */
       read_bytes -= page_read_bytes;

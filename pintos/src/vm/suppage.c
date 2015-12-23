@@ -1,30 +1,78 @@
 #include "suppage.h"
+#include "threads/vaddr.h"
+#include "threads/malloc.h"
+
+static void suppage_remove (struct suppage *);
 
 /* Search suppage by vaddr in current thread's supplemental page table. */
 struct suppage *suppage_search (void *vaddr)
 {
-  // search a suppage which uaddr == vaddr's page alignment address.
-  // return NULL if not exists.
+  struct thread *t = thread_current ();
+  void *upage = pg_round_down (vaddr);
+  struct list_elem *e;
+
+  for (e = list_begin (&t->suppage_list); e != list_end (&t->suppage_list);
+       e = list_next (e))
+    {
+      struct suppage *suppage = list_entry (e, struct suppage, elem);
+      if (suppage->upage == upage)
+        return suppage;
+    }
+
+  return NULL;
 }
 
 /* Allocate upage to current thread. */
 bool suppage_alloc (void *vaddr, bool writable)
 {
-  // 1. get uaddr (= vaddr's page alignment address).
-  // 2. create suppage struct.
-  // 3. mapping upage to frame using frame_map().
+  struct suppage *suppage;
+
+  suppage = malloc (sizeof (struct suppage));
+  suppage->upage = pg_round_down (vaddr);
+  suppage->writable = writable;
+  suppage->owner = thread_current ();
+
+  if (!frame_map (suppage, false))
+    {
+      free (suppage);
+      return false;
+    }
+
+  list_push_back (&suppage->owner->suppage_list, &suppage->elem);
+  return true;
 }
 
 /* Deallocate upage to current thread. */
 bool suppage_dealloc (void *vaddr)
 {
-  // 1. call frame_unmap() to frame.
-  // 2. delete from suppage_list.
+  struct suppage *suppage;
+
+  suppage = suppage_search (vaddr);
+  if (suppage == NULL)
+    return false;
+
+  suppage_remove (suppage);
+
+  return true;
 }
 
 /* Clear current thread's supplemental page table */
 void suppage_clear (void)
 {
-  // 1. iterate all suppages in current thread's suppage_list.
-  // 2. call suppage_dealloc().
+  struct thread *t = thread_current ();
+  struct list_elem *e;
+
+  for (e = list_begin (&t->suppage_list); e != list_end (&t->suppage_list);)
+    {
+      struct suppage *suppage = list_entry (e, struct suppage, elem);
+      e = list_next (e);
+      suppage_remove (suppage);
+    }
+}
+
+static void suppage_remove (struct suppage *suppage)
+{
+  frame_unmap (suppage->frame);
+  list_remove (&suppage->elem);
+  free (suppage);
 }
