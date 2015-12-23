@@ -35,9 +35,19 @@ bool frame_map (struct suppage *suppage, bool load_from_swap)
   frame = malloc (sizeof (struct frame));
   frame->kpage = kpage;
   frame->suppage = suppage;
-
   frame->owner = suppage->owner;
-  free (frame);
+
+  list_push_back (&frame_list, &frame->elem);
+
+  if (load_from_swap && !swap_load (frame))
+    {
+      frame_unmap (frame);
+      return false;
+    }
+
+  suppage->frame = frame;
+
+  return true;
 }
 
 static bool frame_eviction (void)
@@ -89,23 +99,36 @@ static struct frame *frame_find_eviction (void)
     #4 (1, 1) / state = 4, recently used and modified
   */
 
+  int i;
   struct list_elem *e;
+  bool promising = false;
 
-  for (e = list_begin (&frame_list); e != list_end (&frame_list); e = list_next (e))
+  for( i = 0; i < 2; ++i)
     {
-      struct frame *frame = list_entry (e, struct frame, elem);
-      int state = 1;
+      for (e = list_begin (&frame_list); e != list_end (&frame_list); e = list_next (e))
+        {
+          struct frame *frame = list_entry (e, struct frame, elem);
+          int state = 1;
 
-      if( pagedir_is_dirty (
-    }
+          if (pagedir_is_dirty (frame->owner->pagedir, frame->suppage->upage))
+            state += 1;
+          if (pagedir_is_accessed (frame->owner->pagedir, frame->suppage->upage))
+            {
+              state += 2;
+              pagedir_set_accessed (frame->owner->pagedir, frame->suppage->upage, false);
+            }
 
-  
-
-
+          if (state == 1)
+            return frame;
+          else if (state == 2 && promising == false)
+            return frame;
+          else if (state == 3)
+            promising = true;
+        }
+    }  
 
   /* temporary code for test.
   return list_entry (list_begin (&frame_list), struct frame, elem);
   */
-
 }
 
