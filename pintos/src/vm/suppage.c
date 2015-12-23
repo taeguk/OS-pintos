@@ -4,6 +4,11 @@
 
 static void suppage_remove (struct suppage *);
 
+void suppage_init (void)
+{
+  /* Do nothing. */
+}
+
 /* Search suppage by vaddr in current thread's supplemental page table. */
 struct suppage *suppage_search (void *vaddr)
 {

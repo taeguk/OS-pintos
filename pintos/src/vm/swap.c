@@ -1,6 +1,7 @@
 #include "swap.h"
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include <string.h>
 
 static struct disk *swap_disk;
 static struct list slot_list;

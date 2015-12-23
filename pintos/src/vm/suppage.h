@@ -16,6 +16,8 @@ struct suppage
     struct list_elem elem;  // for supplemental page table.
   };
 
+void suppage_init (void);
+
 /* Search suppage by vaddr in current thread's supplemental page table. */
 struct suppage *suppage_search (void *vaddr); 
 
