@@ -35,7 +35,94 @@ bool frame_map (struct suppage *suppage, bool load_from_swap)
   frame = malloc (sizeof (struct frame));
   frame->kpage = kpage;
   frame->suppage = suppage;
+
   frame->owner = suppage->owner;
+  free (frame);
+}
+
+static bool frame_eviction (void)
+{
+  struct frame *frame;
+
+  frame = frame_find_eviction ();
+  if (frame == NULL)
+
+    return false;
+
+  return frame_evict (frame);
+}
+
+/* Evict a frame. */
+static bool frame_evict (struct frame *frame)
+{
+  if (!swap_store (frame))
+    return false;
+
+  free (frame);
+}
+
+static bool frame_eviction (void)
+{
+  struct frame *frame;
+
+  frame = frame_find_eviction ();
+  if (frame == NULL)
+
+    return false;
+
+  return frame_evict (frame);
+}
+
+/* Evict a frame. */
+static bool frame_evict (struct frame *frame)
+{
+  if (!swap_store (frame))
+    return false;
+
+  frame->suppage->frame = NULL;
+  frame_unmap (frame);
+}
+
+/* Find a frame to evict. Use dirty and accessed bits. */
+static struct frame *frame_find_eviction (void)
+{
+  /* 
+    find a frame to evict.
+
+    1st loop, set accessed bits to 0
+    2nd loop, find a frame to evict.
+    
+    Priority List
+    (accessed bit, dirty bit) / state
+    ---------------------------------
+    #1 (0, 0) / state = 1, neither recently used nor modified
+    #2 (0, 1) / state = 2, not recen 
+
+
+
+  /*t
+  frame->suppage->frame = NULL;
+  frame_unmap (frame);
+}
+
+/* Find a frame to evict. Use dirty and accessed bits. */
+static struct frame *frame_find_eviction (void)
+{
+  /* 
+    find a frame to evict.
+
+    1st loop, set accessed bits to 0
+    2nd loop, find a frame to evict.
+    
+    Priority List
+    (accessed bit, dirty bit) / state
+    ---------------------------------
+    #1 (0, 0) / state = 1, neither recently used nor modified
+    #2 (0, 1) / state = 2, not recen 
+
+
+
+  /*t
 
   list_push_back (&frame_list, &frame->elem);
 
@@ -66,6 +153,7 @@ static bool frame_eviction (void)
 
   frame = frame_find_eviction ();
   if (frame == NULL)
+
     return false;
 
   return frame_evict (frame);
@@ -84,10 +172,42 @@ static bool frame_evict (struct frame *frame)
 /* Find a frame to evict. Use dirty and accessed bits. */
 static struct frame *frame_find_eviction (void)
 {
-  // 1. find a frame to evict.
-  //    - use dirty and accessed bits. See pagedir.c and manual.
+  /* 
+    find a frame to evict.
 
-  // temporary code for test.
+    1st loop, set accessed bits to 0
+    2nd loop, find a frame to evict.
+    
+    Priority List
+    (accessed bit, dirty bit) / state
+    ---------------------------------
+    #1 (0, 0) / state = 1, neither recently used nor modified
+    #2 (0, 1) / state = 2, not recen 
+
+
+
+  /*tly used but modified
+    #3 (1, 0) / state = 3, recently used but clean
+    #4 (1, 1) / state = 4, recently used and modified
+  */
+
+  struct list_elem *e;
+
+  for (e = list_begin (&frame_list); e != list_end (&frame_list); e = list_next (e))
+    {
+      struct frame *frame = list_entry (e, struct frame, elem);
+      int state = 1;
+
+      if( pagedir_is_dirty (
+    }
+
+  
+
+
+
+  /* temporary code for test.
   return list_entry (list_begin (&frame_list), struct frame, elem);
+  */
+
 }
 
