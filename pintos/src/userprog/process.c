@@ -20,6 +20,8 @@
 
 #include "threads/malloc.h"
 
+#include "vm/suppage.h"
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -49,6 +51,8 @@ process_execute (const char *file_name)
        ++i)
     real_fn[i] = file_name[i];
   real_fn[i] = 0;
+
+  //printf ("[Debug] process_execute () - before thread_create()\n");
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (real_fn, PRI_DEFAULT, start_process, fn_copy);
@@ -81,6 +85,8 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
+  
+  //printf ("[Debug] start process?!\n");
 
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -88,6 +94,7 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+  //printf ("[Debug]  outside of load??! success : %s\n", success ? "true" : "false");
 
   cur = thread_current ();
   cur->load_success = success;
@@ -97,6 +104,8 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
+
+  //printf ("[Debug] ~start process?!\n");
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -188,6 +197,10 @@ process_exit (void)
   struct thread *cur = thread_current ();
   struct list_elem *e;
   uint32_t *pd;
+
+#ifdef VM
+  suppage_clear ();
+#endif
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -421,6 +434,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+  //printf ("[Debug] load()\n");
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -453,10 +468,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+  //printf ("[Debug] hello!\n");
+
   /* Read program headers. */
   file_ofset = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
     {
+      //printf ("[Debug]  loop #%d\n", i);
       struct Elf32_Phdr phdr;
 
       if (file_ofset < 0 || file_ofset > file_length (file))
@@ -514,10 +532,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
         }
     }
 
+  //printf ("[Debug]  before setup_stack()\n");
 
   /* Set up stack. */
   if (!setup_stack (esp))
     goto done;
+
+  //printf ("[Debug]  after setup_stack()\n");
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
@@ -528,6 +549,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
    success = true;
 
 done:
+
+   //printf ("[Debug]  load success : %s\n", success ? "true" : "false");
 
   /* We arrive here whether the load is successful or not. */
 
@@ -614,6 +637,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
+      
+  //printf ("[Debug] load_segment() upage : 0x%08x\n", upage);
 
   file_seek (file, ofs);
   while (read_bytes > 0 || zero_bytes > 0) 
@@ -624,6 +649,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+#ifndef VM
       /* Get a page of memory. */
       uint8_t *knpage = palloc_get_page (PAL_USER);
       if (knpage == NULL)
@@ -643,12 +669,40 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
           palloc_free_page (knpage);
           return false; 
         }
+#else
+      ////printf ("[Debug]  loop of load_segment() upage : 0x%08x\n", upage);
+
+      /* Allocate page */
+      if (!suppage_alloc (upage, writable))
+        return false;
+
+      ////printf ("[Debug]   fuck.\n");
+      
+      uint8_t *knpage = 
+        list_entry(list_rbegin (&thread_current ()->suppage_list), struct suppage, elem)
+        ->frame->kpage;
+      
+      /* Load this page */
+      if (file_read (file, knpage, page_read_bytes) != (int) page_read_bytes)
+        {
+          ////printf ("[Debug]   fuck2.\n");
+          suppage_dealloc (upage);
+          return false;
+        }
+      ////printf ("[Debug]   fuck3.\n");
+      memset (knpage + page_read_bytes, 0, page_zero_bytes);
+      //list_entry(list_rbegin (&thread_current ()->suppage_list), struct suppage, elem)
+      //  ->writable = writable;
+      ////printf ("[Debug]  loop of ~load_segment()\n");
+#endif
 
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;
       upage += PGSIZE;
     }
+  
+  //printf ("[Debug] ~load_segment() upage : 0x%08x\n", upage);
   return true;
 }
 
@@ -660,6 +714,7 @@ setup_stack (void **esp)
   uint8_t *kpage;
   bool success = false;
 
+#ifndef VM
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
     {
@@ -669,6 +724,13 @@ setup_stack (void **esp)
       else
         palloc_free_page (kpage);
     }
+#else
+  if (suppage_alloc (((uint8_t *) PHYS_BASE) - PGSIZE, true))
+    {
+      success = true;
+      *esp = PHYS_BASE;
+    }
+#endif
   return success;
 }
 

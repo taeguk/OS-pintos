@@ -2,8 +2,13 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "userprog/gdt.h"
+#include "userprog/pagedir.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "threads/palloc.h"
+#include "vm/suppage.h"
+#include "vm/frame.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -147,17 +152,101 @@ page_fault (struct intr_frame *f)
   not_present = (f->error_code & PF_P) == 0;
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
-  
+
+  /*printf ("Page fault at %p: %s error %s page in %s context.\n",
+          fault_addr,
+          not_present ? "not present" : "rights violation",
+          write ? "writing" : "reading",
+          user ? "user" : "kernel");
+  */
+#ifndef VM
   if (!user)
     {
-      // problems...
+      /* access by kernel */
       thread_exit ();
       return;
     }
 
+  kill (f);
+#else
+  
+  if (!not_present || (user && fault_addr >= PHYS_BASE))
+    {
+      //printf ("Access denied.");
+      thread_exit ();
+      return;
+    }
+  
+  bool stack_growth = false;
+
+  if (fault_addr >= MAX_STACK_TOP_ADDR && fault_addr < PHYS_BASE)
+    {
+      void *upage;
+      size_t pages_to_be_allocated = (PHYS_BASE - pg_round_down (fault_addr)) / PGSIZE;
+      size_t allocated_stack_pages = thread_current ()->allocated_stack_pages;
+
+      pages_to_be_allocated -= allocated_stack_pages;
+
+      if(pages_to_be_allocated > 0) 
+        {
+          if (!write || (fault_addr < f->esp && fault_addr != f->esp - 4 && fault_addr != f->esp - 32))
+            {
+              //printf ("What?!\n");
+              thread_exit ();
+              return;
+            }
+          /* stack growth */
+          //printf ("[Debug] stack growth!\n");
+          stack_growth = true;
+          thread_current ()->allocated_stack_pages += pages_to_be_allocated;
+          for (upage = pg_round_down (fault_addr); pages_to_be_allocated > 0; --pages_to_be_allocated, upage += PGSIZE)
+            {
+              //printf ("[Debug]  growth! 0x%08x\n", upage);
+              if (!suppage_alloc (upage, true))
+                {
+                  thread_exit ();
+                  return;
+                }
+            } 
+        }
+    }
+  
+  /* general page fault */
+  if (!stack_growth)
+    {
+      //printf ("[Debug] general page fault!\n");
+      struct suppage *suppage;
+
+      if ((suppage = suppage_search (fault_addr)) == NULL)
+        {
+          //printf ("No allocated page\n");
+          thread_exit ();
+          return;
+        }
+
+      if (write && !suppage->writable)
+        {
+          //printf ("No writable page!\n");
+          thread_exit ();
+          return;
+        }
+
+      ASSERT (suppage->frame == NULL);
+     
+      if (!frame_map (suppage, true))
+        {
+          //printf ("Not available capacity in swap disk.\n");
+          thread_exit ();
+          return;
+        }
+    }
+  
+#endif
+
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
-     which fault_addr refers. */
+     which fault_addr refers. */ 
+  /*
   printf ("Page fault at %p: %s error %s page in %s context.\n",
           fault_addr,
           not_present ? "not present" : "rights violation",
@@ -165,4 +254,8 @@ page_fault (struct intr_frame *f)
           user ? "user" : "kernel");
 
   kill (f);
+  */
+
+  //printf ("[Debug] end of page_fault()!\n");
+
 }
